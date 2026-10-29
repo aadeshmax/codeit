@@ -22,6 +22,7 @@ from agents import (
     AUDIT_MODEL,
     MENTOR_MODEL
 )
+from github_app_auth import resolve_github_auth_token, APP_ID
 
 # In-memory job registry for asynchronous production webhook audits
 JOB_STORE: Dict[str, Dict[str, Any]] = {}
@@ -68,6 +69,7 @@ async def health_check():
         "status": "healthy",
         "service": "codeit-backend",
         "version": "2.5.0",
+        "github_app_id": APP_ID,
         "models": {
             "level1_classifier_8b": CLASSIFIER_MODEL,
             "level2_audit_120b": AUDIT_MODEL,
@@ -78,6 +80,7 @@ async def health_check():
             "socratic_guidance",
             "live_sse_streaming",
             "websocket_streaming",
+            "github_app_jwt_signing",
             "github_webhook_hmac_sha256",
             "github_pr_comment_api",
             "github_commit_status_api"
@@ -280,7 +283,8 @@ async def process_github_webhook_job(
     repo_url: str,
     event_type: str,
     pr_number: Optional[int],
-    head_sha: Optional[str]
+    head_sha: Optional[str],
+    installation_id: Optional[int] = None
 ):
     JOB_STORE[job_id]["status"] = "processing"
     try:
@@ -296,13 +300,13 @@ async def process_github_webhook_job(
             "final_report": final_report
         }
 
-        # If GITHUB_TOKEN is available, interact with GitHub API (Post PR comment / Commit Status)
-        gh_token = os.getenv("GITHUB_TOKEN")
-        if gh_token and "github.com" in repo_url:
+        # Resolve GitHub App installation token or fallback Personal Access Token
+        auth_token = await resolve_github_auth_token(installation_id)
+        if auth_token and "github.com" in repo_url:
             parts = repo_url.rstrip("/").split("/")
             owner, repo = parts[-2], parts[-1].replace(".git", "")
             headers = {
-                "Authorization": f"Bearer {gh_token}",
+                "Authorization": f"Bearer {auth_token}",
                 "Accept": "application/vnd.github.v3+json",
                 "User-Agent": "CodeIt-Production-Bot"
             }
@@ -375,6 +379,7 @@ async def github_webhook_endpoint(
     # Extract target repository URL & commit/PR metadata
     repo_data = payload.get("repository", {})
     repo_url = repo_data.get("html_url") or repo_data.get("clone_url")
+    installation_id = payload.get("installation", {}).get("id")
 
     pr_number = None
     head_sha = None
@@ -400,6 +405,7 @@ async def github_webhook_endpoint(
         "event_type": event_type,
         "pr_number": pr_number,
         "head_sha": head_sha,
+        "installation_id": installation_id,
         "status": "queued"
     }
 
@@ -410,7 +416,8 @@ async def github_webhook_endpoint(
         repo_url,
         event_type,
         pr_number,
-        head_sha
+        head_sha,
+        installation_id
     )
 
     action_msg = "Background audit queued. Feedback will be dispatched via GitHub API."
