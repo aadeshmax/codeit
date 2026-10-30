@@ -61,30 +61,60 @@ class FinalMentorReport(BaseModel):
     # Backward compatibility
     hints: Optional[List[dict]] = Field(default_factory=list)
 
-# Shared Graph State
+# Shared Graph State (Saved across checkpoints under thread_id)
 class CodeItState(TypedDict, total=False):
+    thread_id: str
     repo_url: str
     code_context: str
     selected_files: List[str]
     security_audit: dict
     architecture_audit: dict
     final_report: dict
+    # Fields for Stuck Student Follow-Up Node
+    student_question: Optional[str]
+    chat_history: Optional[List[dict]]
+    stuck_response: Optional[dict]
 
 # API Request & Response Schemas
 class AnalyzeRequest(BaseModel):
     repo_url: str = Field(..., description="Public GitHub repository URL", example="https://github.com/pallets/flask")
+    thread_id: Optional[str] = Field(None, description="Optional custom thread ID for checkpoint tracking")
 
 class AnalyzeResponse(BaseModel):
     status: str
+    thread_id: str
     repo_url: str
     selected_files: List[str] = []
     security_audit: SecurityAudit
     architecture_audit: ArchitectureAudit
     final_report: FinalMentorReport
 
+# Stuck Student Schemas (Follow-up Node)
+class StuckStudentRequest(BaseModel):
+    thread_id: str = Field(..., description="Thread ID returned from /api/analyze to restore state checkpoint", example="42b87f2e-13a8-444a-a035-7c08272f3d61")
+    question: str = Field(
+        ...,
+        description="The student's question or description of where they got stuck",
+        example="I tried using os.getenv() in auth.py but it still returns None, what am I missing?"
+    )
+
+class StuckGuidance(BaseModel):
+    diagnosis: str = Field(description="Diagnostic analysis of why the student's attempt produced the error or unexpected behavior")
+    socratic_question: str = Field(description="A targeted Socratic question pointing them to what needs fixing without writing the code")
+    investigation_steps: List[str] = Field(default_factory=list, description="Actionable debugging steps for the student to run in their environment")
+    verification_challenge: Optional[str] = Field(None, description="Verification challenge to test once fixed")
+
+class StuckStudentResponse(BaseModel):
+    status: str
+    thread_id: str
+    question: str
+    guidance: StuckGuidance
+    chat_history: List[dict]
+
 class WebhookResponse(BaseModel):
     status: str
     event: str
+    thread_id: Optional[str] = None
     repo_url: Optional[str] = None
     delivery_id: Optional[str] = None
     message: str

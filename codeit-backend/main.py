@@ -12,12 +12,22 @@ from fastapi import FastAPI, HTTPException, Request, Header, WebSocket, WebSocke
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langgraph.graph import StateGraph, START, END
-from schemas import CodeItState, AnalyzeRequest, AnalyzeResponse, WebhookResponse
+from langgraph.checkpoint.memory import MemorySaver
+from schemas import (
+    CodeItState,
+    AnalyzeRequest,
+    AnalyzeResponse,
+    WebhookResponse,
+    StuckStudentRequest,
+    StuckStudentResponse,
+    StuckGuidance
+)
 from fetcher import github_fetcher_node
 from agents import (
     security_agent_node,
     architecture_agent_node,
     mentor_agent_node,
+    stuck_student_node,
     CLASSIFIER_MODEL,
     AUDIT_MODEL,
     MENTOR_MODEL
@@ -27,6 +37,18 @@ from github_app_auth import resolve_github_auth_token, APP_ID
 # In-memory job registry for asynchronous production webhook audits
 JOB_STORE: Dict[str, Dict[str, Any]] = {}
 
+# Checkpointer Configuration:
+# MemorySaver provides instant state checkpointing in memory for test runs & dev.
+# For cloud production (e.g. Supabase, Neon, AWS RDS), set POSTGRES_DB_URL to persist checkpoints.
+checkpointer = MemorySaver()
+checkpoint_backend = "MemorySaver (in-memory)"
+if os.getenv("POSTGRES_DB_URL") or os.getenv("DATABASE_URL"):
+    try:
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+        checkpoint_backend = "AsyncPostgresSaver (PostgreSQL / Supabase)"
+    except ImportError:
+        pass
+
 # 1. Initialize StateGraph
 workflow = StateGraph(CodeItState)
 
@@ -35,17 +57,41 @@ workflow.add_node("fetcher", github_fetcher_node)
 workflow.add_node("security_agent", security_agent_node)
 workflow.add_node("architecture_agent", architecture_agent_node)
 workflow.add_node("mentor_agent", mentor_agent_node)
+workflow.add_node("stuck_student", stuck_student_node)
 
-# 3. Connect Edges (Parallel Fan-Out & Fan-In)
-workflow.add_edge(START, "fetcher")
+# 3. Dynamic Router for Checkpointed Entry
+def route_initial_entry(state: CodeItState):
+    """
+    When a student gets stuck and asks a follow-up question under the same thread_id,
+    route directly to the Stuck Student Follow-Up Node.
+    This reads the saved checkpoint (code_context, audits, findings) without re-fetching
+    or re-running the Security & Architecture LLMs!
+    """
+    if state.get("student_question"):
+        return "stuck_student"
+    return "fetcher"
+
+workflow.add_conditional_edges(
+    START,
+    route_initial_entry,
+    {
+        "fetcher": "fetcher",
+        "stuck_student": "stuck_student"
+    }
+)
+
+# Connect Edges (Parallel Fan-Out & Fan-In for Audit Pipeline)
 workflow.add_edge("fetcher", "security_agent")
 workflow.add_edge("fetcher", "architecture_agent")
 workflow.add_edge("security_agent", "mentor_agent")
 workflow.add_edge("architecture_agent", "mentor_agent")
 workflow.add_edge("mentor_agent", END)
 
-# 4. Compile Graph
-codeit_app = workflow.compile()
+# Connect Follow-Up Route to END
+workflow.add_edge("stuck_student", END)
+
+# 4. Compile Graph with LangGraph Checkpointer
+codeit_app = workflow.compile(checkpointer=checkpointer)
 
 # 5. Initialize FastAPI Server
 app = FastAPI(
@@ -68,14 +114,17 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "codeit-backend",
-        "version": "2.5.0",
+        "version": "2.6.0",
         "github_app_id": APP_ID,
+        "checkpointer_backend": checkpoint_backend,
         "models": {
             "level1_classifier_8b": CLASSIFIER_MODEL,
             "level2_audit_120b": AUDIT_MODEL,
             "level3_mentor_20b": MENTOR_MODEL
         },
         "capabilities": [
+            "langgraph_state_checkpointer",
+            "stuck_student_followup_routing",
             "full_diagnostic_metadata",
             "socratic_guidance",
             "live_sse_streaming",
@@ -93,10 +142,17 @@ async def analyze_repository(request: AnalyzeRequest):
     if not request.repo_url or "github.com" not in request.repo_url:
         raise HTTPException(status_code=400, detail="A valid public GitHub repository URL is required.")
     
+    thread_id = request.thread_id or str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
+
     try:
-        result = await codeit_app.ainvoke({"repo_url": request.repo_url})
+        result = await codeit_app.ainvoke(
+            {"repo_url": request.repo_url, "thread_id": thread_id},
+            config=config
+        )
         return {
             "status": "success",
+            "thread_id": thread_id,
             "repo_url": request.repo_url,
             "selected_files": result.get("selected_files", []),
             "security_audit": result.get("security_audit"),
@@ -106,22 +162,94 @@ async def analyze_repository(request: AnalyzeRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
+# Stuck Student Follow-Up Coaching Endpoint (Restores LangGraph Checkpoint)
+@app.post("/api/student/stuck", response_model=StuckStudentResponse)
+@app.post("/api/chat", response_model=StuckStudentResponse)
+async def stuck_student_followup(request: StuckStudentRequest):
+    """
+    When a student gets stuck on a hint (e.g. 'I tried using os.getenv() in auth.py but it still returns None'),
+    this endpoint restores the entire CodeItState snapshot (code_context, security_audit, architecture_audit, final_report)
+    from the LangGraph Checkpointer using thread_id.
+    It routes straight to the Stuck Student Follow-Up Node without re-fetching or re-auditing!
+    """
+    if not request.thread_id:
+        raise HTTPException(status_code=400, detail="A thread_id is required to restore state from checkpoint.")
+    if not request.question or not request.question.strip():
+        raise HTTPException(status_code=400, detail="A student question is required.")
+
+    config = {"configurable": {"thread_id": request.thread_id}}
+
+    # Verify that an analysis checkpoint exists for this thread_id
+    state_snap = await codeit_app.aget_state(config)
+    if not state_snap or not state_snap.values.get("code_context"):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No saved repository audit checkpoint found for thread_id '{request.thread_id}'. Please analyze a repository first."
+        )
+
+    try:
+        # Passing student_question triggers the conditional router to go directly to stuck_student
+        result = await codeit_app.ainvoke(
+            {"student_question": request.question.strip()},
+            config=config
+        )
+        return {
+            "status": "success",
+            "thread_id": request.thread_id,
+            "question": request.question,
+            "guidance": result.get("stuck_response", {}),
+            "chat_history": result.get("chat_history", [])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Follow-up coaching failed: {str(e)}")
+
+# Inspect Checkpointed State Snapshot
+@app.get("/api/student/checkpoint/{thread_id}")
+async def get_student_checkpoint(thread_id: str):
+    config = {"configurable": {"thread_id": thread_id}}
+    state_snap = await codeit_app.aget_state(config)
+    if not state_snap or not state_snap.values:
+        raise HTTPException(status_code=404, detail=f"No checkpoint found for thread_id '{thread_id}'")
+    
+    values = state_snap.values
+    return {
+        "status": "found",
+        "thread_id": thread_id,
+        "repo_url": values.get("repo_url"),
+        "selected_files": values.get("selected_files", []),
+        "security_score": values.get("security_audit", {}).get("security_score"),
+        "architecture_score": values.get("architecture_audit", {}).get("architecture_score"),
+        "overall_score": values.get("final_report", {}).get("overall_score"),
+        "findings_count": len(values.get("final_report", {}).get("findings", [])),
+        "chat_history": values.get("chat_history", [])
+    }
+
 # Production Live Server-Sent Events (SSE) Streaming Endpoint
 @app.get("/api/analyze/stream")
-async def analyze_repository_stream(repo_url: str = Query(..., description="GitHub Repository URL")):
+async def analyze_repository_stream(
+    repo_url: str = Query(..., description="GitHub Repository URL"),
+    thread_id: Optional[str] = Query(None, description="Optional thread ID for checkpoint tracking")
+):
     if not repo_url or "github.com" not in repo_url:
         raise HTTPException(status_code=400, detail="A valid public GitHub repository URL is required.")
+
+    active_thread_id = thread_id or str(uuid.uuid4())
+    config = {"configurable": {"thread_id": active_thread_id}}
 
     async def event_generator():
         # Live Keep-Alive & Initialization
         yield f": ping\n\n"
-        yield f"data: {json.dumps({'event': 'start', 'repo_url': repo_url, 'progress': 5, 'message': 'Connecting to GitHub repository and initiating multi-level audit...'})}\n\n"
+        yield f"data: {json.dumps({'event': 'start', 'thread_id': active_thread_id, 'repo_url': repo_url, 'progress': 5, 'message': 'Connecting to GitHub repository and initiating multi-level audit...'})}\n\n"
 
         try:
-            state_accumulator = {}
+            state_accumulator = {"thread_id": active_thread_id}
             yield f"data: {json.dumps({'event': 'classifying_files', 'model': CLASSIFIER_MODEL, 'progress': 20, 'message': 'Level 1: 8B Model analyzing repository tree structure...'})}\n\n"
 
-            async for chunk in codeit_app.astream({"repo_url": repo_url}, stream_mode="updates"):
+            async for chunk in codeit_app.astream(
+                {"repo_url": repo_url, "thread_id": active_thread_id},
+                config=config,
+                stream_mode="updates"
+            ):
                 for node_name, node_output in chunk.items():
                     state_accumulator.update(node_output)
 
@@ -145,7 +273,7 @@ async def analyze_repository_stream(repo_url: str = Query(..., description="GitH
                         findings = report.get("findings", [])
                         yield f"data: {json.dumps({'event': 'mentor_synthesis_complete', 'model': MENTOR_MODEL, 'overall_score': report.get('overall_score'), 'findings_count': len(findings), 'progress': 95, 'message': 'Level 3: 20B Model synthesized Full Diagnostic Metadata + Socratic Guidance.'})}\n\n"
 
-            yield f"data: {json.dumps({'event': 'complete', 'status': 'success', 'progress': 100, 'result': state_accumulator})}\n\n"
+            yield f"data: {json.dumps({'event': 'complete', 'status': 'success', 'thread_id': active_thread_id, 'progress': 100, 'result': state_accumulator})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'event': 'error', 'message': str(e)})}\n\n"
 
@@ -158,27 +286,66 @@ async def analyze_repository_stream(repo_url: str = Query(..., description="GitH
     }
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)
 
-# WebSocket Real-Time Streaming Endpoint
+# WebSocket Real-Time Streaming Endpoint (Supports Analysis & Checkpointed Socratic Chat)
 @app.websocket("/ws/analyze")
 async def websocket_analyze_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
             data = await websocket.receive_json()
+
+            # Mode A: Stuck Student Question on existing thread_id
+            if data.get("student_question") or (data.get("action") == "stuck"):
+                thread_id = data.get("thread_id")
+                question = data.get("student_question") or data.get("question")
+                if not thread_id or not question:
+                    await websocket.send_json({"event": "error", "message": "thread_id and question are required."})
+                    continue
+
+                config = {"configurable": {"thread_id": thread_id}}
+                state_snap = await codeit_app.aget_state(config)
+                if not state_snap or not state_snap.values.get("code_context"):
+                    await websocket.send_json({"event": "error", "message": f"No checkpoint found for thread_id '{thread_id}'"})
+                    continue
+
+                await websocket.send_json({
+                    "event": "stuck_routing_started",
+                    "thread_id": thread_id,
+                    "message": "Checkpoint restored! Routing directly to Stuck Student Follow-Up Node without re-auditing."
+                })
+
+                result = await codeit_app.ainvoke({"student_question": question}, config=config)
+                await websocket.send_json({
+                    "event": "stuck_guidance_complete",
+                    "thread_id": thread_id,
+                    "guidance": result.get("stuck_response", {}),
+                    "chat_history": result.get("chat_history", [])
+                })
+                continue
+
+            # Mode B: Repository Analysis
             repo_url = data.get("repo_url")
             if not repo_url or "github.com" not in repo_url:
                 await websocket.send_json({"event": "error", "message": "Invalid GitHub repository URL"})
                 continue
 
+            active_thread_id = data.get("thread_id") or str(uuid.uuid4())
+            config = {"configurable": {"thread_id": active_thread_id}}
+
             await websocket.send_json({
                 "event": "start",
+                "thread_id": active_thread_id,
                 "repo_url": repo_url,
                 "progress": 10,
                 "message": "Analysis started across multi-level model pipeline"
             })
 
-            state_accumulator = {}
-            async for chunk in codeit_app.astream({"repo_url": repo_url}, stream_mode="updates"):
+            state_accumulator = {"thread_id": active_thread_id}
+            async for chunk in codeit_app.astream(
+                {"repo_url": repo_url, "thread_id": active_thread_id},
+                config=config,
+                stream_mode="updates"
+            ):
                 for node_name, node_output in chunk.items():
                     state_accumulator.update(node_output)
                     if node_name == "fetcher":
@@ -214,6 +381,7 @@ async def websocket_analyze_endpoint(websocket: WebSocket):
             await websocket.send_json({
                 "event": "complete",
                 "status": "success",
+                "thread_id": active_thread_id,
                 "progress": 100,
                 "result": state_accumulator
             })
@@ -288,8 +456,11 @@ async def process_github_webhook_job(
 ):
     JOB_STORE[job_id]["status"] = "processing"
     try:
-        # Run full multi-agent pipeline
-        result = await codeit_app.ainvoke({"repo_url": repo_url})
+        # Run full multi-agent pipeline with checkpointing under job_id thread
+        result = await codeit_app.ainvoke(
+            {"repo_url": repo_url, "thread_id": job_id},
+            config={"configurable": {"thread_id": job_id}}
+        )
         final_report = result.get("final_report", {})
 
         JOB_STORE[job_id]["status"] = "completed"
@@ -424,6 +595,7 @@ async def github_webhook_endpoint(
     return {
         "status": "accepted",
         "event": event_type,
+        "thread_id": job_id,
         "repo_url": repo_url,
         "delivery_id": delivery_id,
         "message": f"Webhook received for {repo_url}. {action_msg}",

@@ -2,6 +2,15 @@ import hmac
 import hashlib
 import json
 import os
+import sys
+
+# Configure stdout for UTF-8 on Windows
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from fastapi.testclient import TestClient
 from main import app
 
@@ -130,12 +139,80 @@ def test_sse_stream():
         assert len(lines) > 0
         print("SSE live stream completed successfully!")
 
+def test_checkpointer_and_stuck_student():
+    thread_id = "test-student-thread-99"
+
+    # 1. Analyze repository and persist checkpoint under thread_id
+    res = client.post(
+        "/api/analyze",
+        json={"repo_url": "https://github.com/octocat/Hello-World", "thread_id": thread_id}
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["thread_id"] == thread_id
+    print("Checkpoint created under thread_id:", thread_id)
+
+    # 2. Inspect checkpoint state directly
+    cp_res = client.get(f"/api/student/checkpoint/{thread_id}")
+    assert cp_res.status_code == 200
+    cp_data = cp_res.json()
+    assert cp_data["status"] == "found"
+    assert cp_data["thread_id"] == thread_id
+    print("Checkpoint verified:", cp_data)
+
+    # 3. Student gets stuck on Hint #2 and asks follow-up
+    # LangGraph routes directly to Stuck Student Follow-Up Node without re-fetching or re-running audits!
+    stuck_res = client.post(
+        "/api/student/stuck",
+        json={
+            "thread_id": thread_id,
+            "question": "I tried using os.getenv() in auth.py but it still returns None, what am I missing?"
+        }
+    )
+    assert stuck_res.status_code == 200
+    stuck_data = stuck_res.json()
+    assert stuck_data["status"] == "success"
+    assert stuck_data["thread_id"] == thread_id
+    guidance = stuck_data["guidance"]
+    assert "diagnosis" in guidance
+    assert "socratic_question" in guidance
+    assert len(guidance["investigation_steps"]) > 0
+    print("Stuck Student Follow-Up Diagnosis:", guidance["diagnosis"][:100], "...")
+    print("Socratic Question:", guidance["socratic_question"])
+    print("Investigation Steps:", guidance["investigation_steps"])
+    assert len(stuck_data["chat_history"]) == 2
+
+    # 4. Multi-turn conversation persistence: Student asks follow-up question in same thread
+    stuck_res_2 = client.post(
+        "/api/chat",
+        json={
+            "thread_id": thread_id,
+            "question": "Should I use python-dotenv or system environment variables?"
+        }
+    )
+    assert stuck_res_2.status_code == 200
+    stuck_data_2 = stuck_res_2.json()
+    assert len(stuck_data_2["chat_history"]) == 4
+    print("Multi-turn conversation turns accumulated:", len(stuck_data_2["chat_history"]))
+
+    # 5. Unknown thread_id rejection
+    bad_res = client.post(
+        "/api/student/stuck",
+        json={
+            "thread_id": "nonexistent-thread-000",
+            "question": "Where is my repo?"
+        }
+    )
+    assert bad_res.status_code == 404
+    print("Nonexistent thread_id rejection OK: 404 Not Found")
+
 if __name__ == "__main__":
     print("--- Running Test Suite ---")
     test_health()
     test_github_app_jwt_signing()
     test_webhook_hmac_verification()
     test_webhook_pr_dispatch()
+    test_checkpointer_and_stuck_student()
     test_sse_stream()
     test_websocket()
     print("--- ALL TESTS PASSED SUCCESSFULLY! ---")

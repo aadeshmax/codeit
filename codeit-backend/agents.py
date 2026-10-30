@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from groq import AsyncGroq
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from schemas import CodeItState, SecurityAudit, ArchitectureAudit, FinalMentorReport
+from schemas import CodeItState, SecurityAudit, ArchitectureAudit, FinalMentorReport, StuckGuidance
 
 load_dotenv()
 
@@ -209,3 +209,88 @@ STRICT RULES:
             findings=[]
         )
         return {"final_report": fallback.model_dump()}
+
+# LEVEL 3 (FOLLOW-UP): Stuck Student Follow-Up Node (LangGraph Checkpointer Route)
+async def stuck_student_node(state: CodeItState):
+    """
+    Activated when a student asks a follow-up question using their thread_id.
+    Reads the full checkpoint state without re-fetching or re-auditing, providing
+    targeted Socratic coaching for where they got stuck.
+    """
+    student_question = state.get("student_question", "")
+    code_context = state.get("code_context", "")
+    final_report = state.get("final_report", {})
+    chat_history = list(state.get("chat_history") or [])
+
+    findings = final_report.get("findings", [])
+    findings_snippet = json.dumps(findings[:5], indent=2) if findings else "No prior critical findings recorded."
+
+    prompt = f"""You are Agent 3: The CodeIt Mentor in a follow-up coaching session.
+The student has reviewed their code audit and is stuck trying to solve a diagnostic issue.
+The student asks:
+"{student_question}"
+
+RELEVANT REPOSITORY CODE CONTEXT:
+{code_context[:3500]}
+
+ORIGINAL AUDIT FINDINGS:
+{findings_snippet}
+
+PREVIOUS CHAT HISTORY:
+{json.dumps(chat_history[-4:], indent=2) if chat_history else "None"}
+
+CORE PEDAGOGICAL PHILOSOPHY:
+Full Diagnostic Metadata + Socratic Guidance.
+STRICT RULES:
+1. NEVER output copy-paste fixed code solutions.
+2. Analyze why the student's specific attempt or approach is failing in this codebase context.
+3. Guide the student to discover and write the correct fix themselves.
+
+Return a valid JSON object matching this exact schema:
+{{
+  "diagnosis": "<Specific technical diagnosis explaining why their attempt failed, returned None, threw an error, or caused unexpected behavior in this codebase>",
+  "socratic_question": "<Thought-provoking guiding question targeting the exact missing link or principle>",
+  "investigation_steps": [
+    "<Actionable debugging step 1>",
+    "<Actionable debugging step 2>"
+  ],
+  "verification_challenge": "<Quick verification test or check to confirm the fix works once implemented>"
+}}
+Return ONLY valid JSON."""
+
+    try:
+        res = await groq_async_client.chat.completions.create(
+            model=MENTOR_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            response_format={"type": "json_object"}
+        )
+        content = res.choices[0].message.content or "{}"
+        guidance_data = json.loads(content)
+        validated_guidance = StuckGuidance.model_validate(guidance_data)
+        guidance_dict = validated_guidance.model_dump()
+    except Exception as e:
+        print(f"Warning: Fallback stuck guidance ({e})")
+        guidance_dict = {
+            "diagnosis": "The requested environment variable or configuration was not found in the running process scope.",
+            "socratic_question": "What mechanism does your application use to populate environment variables into the runtime process before this line executes?",
+            "investigation_steps": [
+                "Verify whether your environment variables are defined in the active shell or a local configuration file.",
+                "Check if your entry point calls a loader function like load_dotenv() prior to importing or referencing the variable."
+            ],
+            "verification_challenge": "Print the contents of os.environ.keys() right before this statement to verify whether the key is present in memory."
+        }
+
+    chat_history.append({
+        "role": "student",
+        "content": student_question
+    })
+    chat_history.append({
+        "role": "mentor",
+        "guidance": guidance_dict
+    })
+
+    return {
+        "stuck_response": guidance_dict,
+        "chat_history": chat_history
+    }
