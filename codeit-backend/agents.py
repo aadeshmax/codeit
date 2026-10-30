@@ -36,7 +36,7 @@ api_key = get_groq_api_key()
 
 # Multi-Level Model Architecture
 # Level 1: 8B-class model for rapid file classification
-CLASSIFIER_MODEL = os.getenv("GROQ_CLASSIFIER_MODEL", "allam-2-7b")
+CLASSIFIER_MODEL = os.getenv("GROQ_CLASSIFIER_MODEL", "llama-3.1-8b-instant")
 
 # Level 2: OpenAI OSS 120B for deep security, architecture, and efficiency audits
 AUDIT_MODEL = os.getenv("GROQ_AUDIT_MODEL", "openai/gpt-oss-120b")
