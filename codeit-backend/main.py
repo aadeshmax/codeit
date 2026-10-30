@@ -7,6 +7,13 @@ import sys
 import uuid
 import httpx
 import uvicorn
+
+# Configure UTF-8 stdout on Windows
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 from typing import Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Request, Header, WebSocket, WebSocketDisconnect, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -614,8 +621,17 @@ async def test_pipeline(repo_url: str = "https://github.com/pallets/flask"):
     print(f"- Classifier (8B): {CLASSIFIER_MODEL}")
     print(f"- Audits (120B): {AUDIT_MODEL}")
     print(f"- Mentor (20B): {MENTOR_MODEL}")
-    result = await codeit_app.ainvoke({"repo_url": repo_url})
-    print(json.dumps(result["final_report"], indent=2))
+    thread_id = str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
+    result = await codeit_app.ainvoke({"repo_url": repo_url, "thread_id": thread_id}, config=config)
+    print(f"\n--- AUDIT COMPLETED (Thread ID: {thread_id}) ---")
+    print(f"Selected Files: {result.get('selected_files', [])}")
+    print("\n[SECURITY AUDIT SUMMARY]:")
+    print(json.dumps(result.get("security_audit"), indent=2))
+    print("\n[ARCHITECTURE AUDIT SUMMARY]:")
+    print(json.dumps(result.get("architecture_audit"), indent=2))
+    print("\n[FINAL SOCRATIC MENTOR REPORT]:")
+    print(json.dumps(result.get("final_report"), indent=2))
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--test":

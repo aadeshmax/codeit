@@ -13,9 +13,20 @@ PRIVATE_KEY_PATH = os.getenv("GITHUB_APP_PRIVATE_KEY_PATH")
 
 def load_private_key() -> Optional[str]:
     """Loads the GitHub App RS256 private key from file or env."""
-    if PRIVATE_KEY_PATH and os.path.exists(PRIVATE_KEY_PATH):
-        with open(PRIVATE_KEY_PATH, "r", encoding="utf-8") as f:
-            return f.read().strip()
+    candidates = []
+    if PRIVATE_KEY_PATH:
+        candidates.extend([
+            PRIVATE_KEY_PATH,
+            os.path.join(os.path.dirname(__file__), PRIVATE_KEY_PATH),
+        ])
+    candidates.extend([
+        os.path.join(os.path.dirname(__file__), "github-app-private-key.pem"),
+        os.path.join(os.getcwd(), "github-app-private-key.pem"),
+    ])
+    for path in candidates:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read().strip()
     key_env = os.getenv("GITHUB_APP_PRIVATE_KEY")
     if key_env:
         return key_env.strip()

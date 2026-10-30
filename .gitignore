@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+codeit-backend/venv/
+
+# Environment variables and secrets
+.env
+codeit-backend/.env
+api.txt
+*.pem
+
+# IDE / System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+

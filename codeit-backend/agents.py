@@ -189,7 +189,10 @@ STRICT RULES:
     try:
         res = await groq_async_client.chat.completions.create(
             model=MENTOR_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": "You are Agent 3: The CodeIt Mentor. You must output raw valid JSON only matching the schema. Do not include markdown codeblocks or explanatory text."},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.1,
             response_format={"type": "json_object"}
         )
@@ -201,12 +204,62 @@ STRICT RULES:
         print(f"Warning: Fallback report generation ({e})")
         sec_score = security_audit.get("security_score", 100)
         arch_score = arch_audit.get("architecture_score", 100)
+        
+        # Build diagnostic findings from audits
+        findings_list = []
+        for issue in security_audit.get("issues", []):
+            findings_list.append({
+                "category": "Security",
+                "diagnostic": {
+                    "file_path": issue.get("file_path", "unknown"),
+                    "line_start": issue.get("line_number"),
+                    "line_end": issue.get("line_number"),
+                    "code_snippet": issue.get("code_snippet") or "Code snippet identified in audit",
+                    "flaw_type": issue.get("vulnerability", "Security Flaw"),
+                    "severity": issue.get("severity", "Medium"),
+                    "impact_analysis": issue.get("impact", "Exploitation could compromise application security."),
+                    "standards_ref": "OWASP Top 10"
+                },
+                "guidance": {
+                    "conceptual_direction": "Input Sanitization, Encoding, and Access Control",
+                    "guiding_question": f"How can you ensure user-controlled input in {issue.get('file_path')} is sanitized or encoded before being rendered or evaluated?",
+                    "investigation_steps": [
+                        f"Inspect line {issue.get('line_number', 'N/A')} in {issue.get('file_path')}",
+                        "Check if variables are interpolated directly into DOM or query contexts without sanitization"
+                    ],
+                    "verification_challenge": "Pass special HTML/script characters or injection payloads to verify they are treated strictly as inert text."
+                }
+            })
+        for b in arch_audit.get("bottlenecks", []):
+            findings_list.append({
+                "category": "Architecture" if b.get("category") == "Architecture" else "Efficiency",
+                "diagnostic": {
+                    "file_path": b.get("file_path", "unknown"),
+                    "line_start": b.get("line_number"),
+                    "line_end": b.get("line_number"),
+                    "code_snippet": b.get("code_snippet") or "Bottleneck identified in audit",
+                    "flaw_type": b.get("flaw", "Architectural Bottleneck"),
+                    "severity": "Medium",
+                    "impact_analysis": b.get("impact", "May cause memory leaks or performance degradation under load."),
+                    "standards_ref": "Clean Architecture & Resource Lifecycle"
+                },
+                "guidance": {
+                    "conceptual_direction": "Resource Lifecycle & Transformation Matrix Cleanup",
+                    "guiding_question": f"Where should resource teardown or state resets happen when this operation in {b.get('file_path')} is completed or re-triggered?",
+                    "investigation_steps": [
+                        f"Trace the lifecycle of the timer or context in {b.get('file_path')}",
+                        "Check if cleanup functions or matrix reset calls are executed on every cycle"
+                    ],
+                    "verification_challenge": "Trigger the operation multiple times in succession and inspect memory and CPU usage profile."
+                }
+            })
+
         fallback = FinalMentorReport(
             overall_score=int((sec_score + arch_score) / 2),
             security_score=sec_score,
             architecture_score=arch_score,
-            summary="Audits processed successfully.",
-            findings=[]
+            summary=f"Audit completed: Security score {sec_score}/100, Architecture score {arch_score}/100. Review the diagnostic findings below.",
+            findings=findings_list
         )
         return {"final_report": fallback.model_dump()}
 
