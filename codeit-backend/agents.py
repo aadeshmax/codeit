@@ -5,7 +5,10 @@ from dotenv import load_dotenv
 from groq import AsyncGroq
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from schemas import CodeItState, SecurityAudit, ArchitectureAudit, FinalMentorReport
+from schemas import (
+    CodeItState, SecurityAudit, ArchitectureAudit, FinalMentorReport,
+    FullDiagnosticFinding, DiagnosticMetadata, SocraticGuidance
+)
 
 load_dotenv()
 
@@ -36,13 +39,13 @@ api_key = get_groq_api_key()
 
 # Multi-Level Model Architecture
 # Level 1: 8B-class model for rapid file classification
-CLASSIFIER_MODEL = os.getenv("GROQ_CLASSIFIER_MODEL", "allam-2-7b")
+CLASSIFIER_MODEL = os.getenv("GROQ_CLASSIFIER_MODEL", "llama-3.1-8b-instant")
 
-# Level 2: OpenAI OSS 120B for deep security, architecture, and efficiency audits
-AUDIT_MODEL = os.getenv("GROQ_AUDIT_MODEL", "openai/gpt-oss-120b")
+# Level 2: 70B model for deep security, architecture, and efficiency audits
+AUDIT_MODEL = os.getenv("GROQ_AUDIT_MODEL", "llama-3.3-70b-versatile")
 
-# Level 3: OpenAI OSS 20B for audit JSON analysis and Socratic mentorship synthesis
-MENTOR_MODEL = os.getenv("GROQ_MENTOR_MODEL", "openai/gpt-oss-20b")
+# Level 3: 70B model for audit JSON analysis and Socratic mentorship synthesis
+MENTOR_MODEL = os.getenv("GROQ_MENTOR_MODEL", "llama-3.3-70b-versatile")
 
 # Backward compatibility alias
 model_name = AUDIT_MODEL
@@ -198,14 +201,83 @@ STRICT RULES:
         validated_report = FinalMentorReport.model_validate(report_data)
         return {"final_report": validated_report.model_dump()}
     except Exception as e:
-        print(f"Warning: Fallback report generation ({e})")
+        print(f"Warning: Fallback report generation triggered ({e})")
         sec_score = security_audit.get("security_score", 100)
         arch_score = arch_audit.get("architecture_score", 100)
+        fallback_findings = []
+
+        # Convert security audit issues into findings if available
+        for issue in security_audit.get("issues", []):
+            file_path = issue.get("file_path", "unknown")
+            line_num = issue.get("line_number")
+            snippet = issue.get("code_snippet") or ""
+            vuln = issue.get("vulnerability") or "Security Flaw"
+            sev = issue.get("severity", "Medium")
+            imp = issue.get("impact") or "Potential security risk in production."
+
+            fallback_findings.append(
+                FullDiagnosticFinding(
+                    category="Security",
+                    diagnostic=DiagnosticMetadata(
+                        file_path=file_path,
+                        line_start=line_num,
+                        line_end=line_num,
+                        code_snippet=snippet,
+                        flaw_type=vuln,
+                        severity=sev if sev in ["Low", "Medium", "High", "Critical"] else "Medium",
+                        impact_analysis=imp
+                    ),
+                    guidance=SocraticGuidance(
+                        conceptual_direction=f"Apply secure coding principles to resolve {vuln}.",
+                        guiding_question=f"What security control or input validation can be applied in {file_path} to address {vuln}?",
+                        investigation_steps=[
+                            f"Inspect line {line_num} in {file_path}",
+                            "Review parameter validation and auth rules"
+                        ],
+                        verification_challenge=f"Test {file_path} with security edge cases."
+                    )
+                )
+            )
+
+        # Convert architecture audit bottlenecks into findings if available
+        for bneck in arch_audit.get("bottlenecks", []):
+            file_path = bneck.get("file_path", "unknown")
+            line_num = bneck.get("line_number")
+            snippet = bneck.get("code_snippet") or ""
+            flaw = bneck.get("flaw") or "Architectural Bottleneck"
+            category = bneck.get("category", "Architecture")
+            cat_str = "Efficiency" if category in ["Complexity", "Async/IO"] else "Architecture"
+            imp = bneck.get("impact") or "Degradation in system throughput or maintainability."
+
+            fallback_findings.append(
+                FullDiagnosticFinding(
+                    category=cat_str,
+                    diagnostic=DiagnosticMetadata(
+                        file_path=file_path,
+                        line_start=line_num,
+                        line_end=line_num,
+                        code_snippet=snippet,
+                        flaw_type=flaw,
+                        severity="Medium",
+                        impact_analysis=imp
+                    ),
+                    guidance=SocraticGuidance(
+                        conceptual_direction="Refactor for modularity, optimal time complexity, and asynchronous I/O.",
+                        guiding_question=f"How can {file_path} be refactored to optimize resource usage or modularity?",
+                        investigation_steps=[
+                            f"Trace execution flow around line {line_num} in {file_path}",
+                            "Check for non-blocking I/O or algorithmic complexity issues"
+                        ],
+                        verification_challenge=f"Benchmark performance of {file_path} before and after fix."
+                    )
+                )
+            )
+
         fallback = FinalMentorReport(
             overall_score=int((sec_score + arch_score) / 2),
             security_score=sec_score,
             architecture_score=arch_score,
-            summary="Audits processed successfully.",
-            findings=[]
+            summary="Audits processed and synthesized with socratic guidance.",
+            findings=fallback_findings
         )
         return {"final_report": fallback.model_dump()}
