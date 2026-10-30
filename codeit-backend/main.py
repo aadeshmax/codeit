@@ -116,6 +116,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def read_root():
+    return {"status": "online", "service": "CodeIt Socratic AI Bot"}
+
 @app.get("/health")
 async def health_check():
     return {
