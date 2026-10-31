@@ -84,6 +84,7 @@ class AnalyzeResponse(BaseModel):
     status: str
     thread_id: str
     repo_url: str
+    formatted_text: str = Field(description="Ready-to-display human readable markdown/text report for the web frontend")
     selected_files: List[str] = []
     security_audit: SecurityAudit
     architecture_audit: ArchitectureAudit
@@ -108,6 +109,7 @@ class StuckStudentResponse(BaseModel):
     status: str
     thread_id: str
     question: str
+    formatted_text: str = Field(description="Ready-to-display human readable markdown/text coaching reply for the frontend")
     guidance: StuckGuidance
     chat_history: List[dict]
 

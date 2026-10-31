@@ -116,6 +116,98 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def format_report_as_text(final_report: dict, repo_url: str) -> str:
+    """Formats the audit report into a clean, human-readable text document for the web frontend."""
+    overall = final_report.get("overall_score", 0)
+    sec_score = final_report.get("security_score", 0)
+    arch_score = final_report.get("architecture_score", 0)
+    summary = final_report.get("summary", "")
+    findings = final_report.get("findings", [])
+
+    lines = [
+        "============================================================",
+        "             CODEIT SOCRATIC CODE REVIEW REPORT             ",
+        "============================================================",
+        f"Repository: {repo_url}",
+        f"Overall Quality Score: {overall} / 100",
+        f"  - Security Score:     {sec_score} / 100",
+        f"  - Architecture Score: {arch_score} / 100",
+        "",
+        "[EXECUTIVE SUMMARY]",
+        summary,
+        "",
+        "------------------------------------------------------------",
+        "DIAGNOSTIC FINDINGS & SOCRATIC GUIDANCE",
+        "------------------------------------------------------------"
+    ]
+
+    if not findings:
+        lines.append("No critical vulnerabilities or architectural bottlenecks detected.")
+    else:
+        for idx, f in enumerate(findings, 1):
+            cat = f.get("category", "General")
+            diag = f.get("diagnostic", {})
+            guid = f.get("guidance", {})
+            file_path = diag.get("file_path", "unknown")
+            l_start = diag.get("line_start")
+            line_info = f"Line {l_start}" if l_start else "Line N/A"
+
+            lines.append(f"[{idx}] {cat.upper()}: {diag.get('flaw_type', 'Issue')} in {file_path} ({line_info})")
+            lines.append(f"    Severity: {diag.get('severity', 'Medium')} | Reference: {diag.get('standards_ref', 'N/A')}")
+            lines.append(f"    Production Impact: {diag.get('impact_analysis', 'N/A')}")
+            
+            snippet = diag.get("code_snippet")
+            if snippet:
+                lines.append("    Code Snippet:")
+                for s_line in snippet.strip().splitlines()[:6]:
+                    lines.append(f"      | {s_line}")
+
+            lines.append(f"    Conceptual Direction: {guid.get('conceptual_direction', 'N/A')}")
+            lines.append(f"    Socratic Question:    {guid.get('guiding_question', '')}")
+            
+            steps = guid.get("investigation_steps", [])
+            if steps:
+                lines.append("    Investigation Steps:")
+                for step in steps:
+                    lines.append(f"      * {step}")
+            challenge = guid.get("verification_challenge")
+            if challenge:
+                lines.append(f"    Verification Challenge: {challenge}")
+            lines.append("")
+
+    lines.append("============================================================")
+    return "\n".join(lines)
+
+def format_stuck_guidance_as_text(guidance: dict, question: str) -> str:
+    """Formats stuck student follow-up guidance into clean text for the frontend."""
+    diag = guidance.get("diagnosis", "")
+    socratic = guidance.get("socratic_question", "")
+    steps = guidance.get("investigation_steps", [])
+    challenge = guidance.get("verification_challenge", "")
+
+    lines = [
+        "------------------------------------------------------------",
+        "                CODEIT SOCRATIC COACHING                    ",
+        "------------------------------------------------------------",
+        f"Your Question: {question}",
+        "",
+        "[DIAGNOSIS]",
+        diag,
+        "",
+        "[SOCRATIC GUIDING QUESTION]",
+        socratic,
+        ""
+    ]
+    if steps:
+        lines.append("[INVESTIGATION STEPS]")
+        for idx, step in enumerate(steps, 1):
+            lines.append(f" {idx}. {step}")
+        lines.append("")
+    if challenge:
+        lines.append(f"[VERIFICATION CHALLENGE]\n{challenge}\n")
+    lines.append("------------------------------------------------------------")
+    return "\n".join(lines)
+
 @app.get("/")
 def read_root():
     return {"status": "online", "service": "CodeIt Socratic AI Bot"}
@@ -161,17 +253,40 @@ async def analyze_repository(request: AnalyzeRequest):
             {"repo_url": request.repo_url, "thread_id": thread_id},
             config=config
         )
+        final_report = result.get("final_report", {})
+        formatted_txt = format_report_as_text(final_report, request.repo_url)
+
         return {
             "status": "success",
             "thread_id": thread_id,
             "repo_url": request.repo_url,
+            "formatted_text": formatted_txt,
             "selected_files": result.get("selected_files", []),
             "security_audit": result.get("security_audit"),
             "architecture_audit": result.get("architecture_audit"),
-            "final_report": result.get("final_report")
+            "final_report": final_report
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+# Plain Text Export / Display Endpoint for Web Frontend
+@app.get("/api/analyze/text", response_class=StreamingResponse)
+async def analyze_repository_as_plaintext(
+    repo_url: str = Query(..., description="Public GitHub repository URL"),
+    thread_id: Optional[str] = Query(None, description="Optional thread_id")
+):
+    """Returns a direct raw plain text / markdown stream for simple web frontend display without JSON parsing."""
+    active_thread_id = thread_id or str(uuid.uuid4())
+    config = {"configurable": {"thread_id": active_thread_id}}
+    result = await codeit_app.ainvoke({"repo_url": repo_url, "thread_id": active_thread_id}, config=config)
+    final_report = result.get("final_report", {})
+    text_content = format_report_as_text(final_report, repo_url)
+    
+    return StreamingResponse(
+        iter([text_content]),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": "inline"}
+    )
 
 # Stuck Student Follow-Up Coaching Endpoint (Restores LangGraph Checkpoint)
 @app.post("/api/student/stuck", response_model=StuckStudentResponse)
@@ -204,11 +319,15 @@ async def stuck_student_followup(request: StuckStudentRequest):
             {"student_question": request.question.strip()},
             config=config
         )
+        guidance = result.get("stuck_response", {})
+        formatted_txt = format_stuck_guidance_as_text(guidance, request.question.strip())
+
         return {
             "status": "success",
             "thread_id": request.thread_id,
             "question": request.question,
-            "guidance": result.get("stuck_response", {}),
+            "formatted_text": formatted_txt,
+            "guidance": guidance,
             "chat_history": result.get("chat_history", [])
         }
     except Exception as e:
