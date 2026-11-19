@@ -65,6 +65,7 @@ class FinalMentorReport(BaseModel):
 class CodeItState(TypedDict, total=False):
     thread_id: str
     repo_url: str
+    installation_id: Optional[int]
     code_context: str
     selected_files: List[str]
     security_audit: dict

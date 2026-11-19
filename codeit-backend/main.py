@@ -5,6 +5,9 @@ import json
 import os
 import sys
 import uuid
+from contextlib import asynccontextmanager
+from typing import Optional, Dict, Any
+
 import httpx
 import uvicorn
 
@@ -14,12 +17,13 @@ if sys.platform == "win32":
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-from typing import Optional, Dict, Any
+
 from fastapi import FastAPI, HTTPException, Request, Header, WebSocket, WebSocketDisconnect, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
+
 from schemas import (
     CodeItState,
     AnalyzeRequest,
@@ -27,7 +31,6 @@ from schemas import (
     WebhookResponse,
     StuckStudentRequest,
     StuckStudentResponse,
-    StuckGuidance
 )
 from fetcher import github_fetcher_node
 from agents import (
@@ -41,20 +44,13 @@ from agents import (
 )
 from github_app_auth import resolve_github_auth_token, APP_ID
 
-# In-memory job registry for asynchronous production webhook audits
+# Bounded in-memory job registry for asynchronous production webhook audits (capped at 200 entries)
 JOB_STORE: Dict[str, Dict[str, Any]] = {}
+MAX_JOB_STORE_SIZE = 200
 
-# Checkpointer Configuration:
-# MemorySaver provides instant state checkpointing in memory for test runs & dev.
-# For cloud production (e.g. Supabase, Neon, AWS RDS), set POSTGRES_DB_URL to persist checkpoints.
+# Default in-memory checkpointer (upgraded to AsyncPostgresSaver in lifespan if DATABASE_URL is set)
 checkpointer = MemorySaver()
 checkpoint_backend = "MemorySaver (in-memory)"
-if os.getenv("POSTGRES_DB_URL") or os.getenv("DATABASE_URL"):
-    try:
-        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-        checkpoint_backend = "AsyncPostgresSaver (PostgreSQL / Supabase)"
-    except ImportError:
-        pass
 
 # 1. Initialize StateGraph
 workflow = StateGraph(CodeItState)
@@ -65,6 +61,7 @@ workflow.add_node("security_agent", security_agent_node)
 workflow.add_node("architecture_agent", architecture_agent_node)
 workflow.add_node("mentor_agent", mentor_agent_node)
 workflow.add_node("stuck_student", stuck_student_node)
+
 
 # 3. Dynamic Router for Checkpointed Entry
 def route_initial_entry(state: CodeItState):
@@ -77,6 +74,7 @@ def route_initial_entry(state: CodeItState):
     if state.get("student_question"):
         return "stuck_student"
     return "fetcher"
+
 
 workflow.add_conditional_edges(
     START,
@@ -100,21 +98,47 @@ workflow.add_edge("stuck_student", END)
 # 4. Compile Graph with LangGraph Checkpointer
 codeit_app = workflow.compile(checkpointer=checkpointer)
 
+
+@asynccontextmanager
+async def lifespan(app_instance: FastAPI):
+    """
+    Automatically connects AsyncPostgresSaver on startup if POSTGRES_DB_URL or DATABASE_URL
+    is configured on Render / Supabase; otherwise runs with MemorySaver.
+    """
+    global checkpoint_backend
+    db_url = (os.getenv("POSTGRES_DB_URL") or os.getenv("DATABASE_URL") or "").strip()
+    if db_url:
+        try:
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+            async with AsyncPostgresSaver.from_conn_string(db_url) as pg_saver:
+                await pg_saver.setup()
+                codeit_app.checkpointer = pg_saver
+                checkpoint_backend = "AsyncPostgresSaver (PostgreSQL / Supabase)"
+                yield
+                return
+        except Exception as e:
+            print(f"Warning: Failed to initialize AsyncPostgresSaver, falling back to MemorySaver ({e})")
+            checkpoint_backend = "MemorySaver (in-memory fallback)"
+    yield
+
+
 # 5. Initialize FastAPI Server
 app = FastAPI(
     title="CodeIt Production Backend API",
     description="Multi-agent GitHub code review & Socratic mentoring with multi-level Groq models, live SSE, WebSockets, and GitHub Webhook API integration.",
-    version="2.5.0"
+    version="2.6.0",
+    lifespan=lifespan
 )
 
 # Enable CORS for production web clients
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 def format_report_as_text(final_report: dict, repo_url: str) -> str:
     """Formats the audit report into a clean, human-readable text document for the web frontend."""
@@ -155,7 +179,7 @@ def format_report_as_text(final_report: dict, repo_url: str) -> str:
             lines.append(f"[{idx}] {cat.upper()}: {diag.get('flaw_type', 'Issue')} in {file_path} ({line_info})")
             lines.append(f"    Severity: {diag.get('severity', 'Medium')} | Reference: {diag.get('standards_ref', 'N/A')}")
             lines.append(f"    Production Impact: {diag.get('impact_analysis', 'N/A')}")
-            
+
             snippet = diag.get("code_snippet")
             if snippet:
                 lines.append("    Code Snippet:")
@@ -164,7 +188,7 @@ def format_report_as_text(final_report: dict, repo_url: str) -> str:
 
             lines.append(f"    Conceptual Direction: {guid.get('conceptual_direction', 'N/A')}")
             lines.append(f"    Socratic Question:    {guid.get('guiding_question', '')}")
-            
+
             steps = guid.get("investigation_steps", [])
             if steps:
                 lines.append("    Investigation Steps:")
@@ -177,6 +201,7 @@ def format_report_as_text(final_report: dict, repo_url: str) -> str:
 
     lines.append("============================================================")
     return "\n".join(lines)
+
 
 def format_stuck_guidance_as_text(guidance: dict, question: str) -> str:
     """Formats stuck student follow-up guidance into clean text for the frontend."""
@@ -208,9 +233,11 @@ def format_stuck_guidance_as_text(guidance: dict, question: str) -> str:
     lines.append("------------------------------------------------------------")
     return "\n".join(lines)
 
+
 @app.get("/")
 def read_root():
     return {"status": "online", "service": "CodeIt Socratic AI Bot"}
+
 
 @app.get("/health")
 async def health_check():
@@ -239,18 +266,20 @@ async def health_check():
         ]
     }
 
+
 # Standard Synchronous Analysis Endpoint
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze_repository(request: AnalyzeRequest):
     if not request.repo_url or "github.com" not in request.repo_url:
         raise HTTPException(status_code=400, detail="A valid public GitHub repository URL is required.")
-    
+
     thread_id = request.thread_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
     try:
+        # Explicitly pass student_question=None so reused thread_ids route to fetcher
         result = await codeit_app.ainvoke(
-            {"repo_url": request.repo_url, "thread_id": thread_id},
+            {"repo_url": request.repo_url, "thread_id": thread_id, "student_question": None},
             config=config
         )
         final_report = result.get("final_report", {})
@@ -266,8 +295,11 @@ async def analyze_repository(request: AnalyzeRequest):
             "architecture_audit": result.get("architecture_audit"),
             "final_report": final_report
         }
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
 
 # Plain Text Export / Display Endpoint for Web Frontend
 @app.get("/api/analyze/text", response_class=StreamingResponse)
@@ -276,17 +308,29 @@ async def analyze_repository_as_plaintext(
     thread_id: Optional[str] = Query(None, description="Optional thread_id")
 ):
     """Returns a direct raw plain text / markdown stream for simple web frontend display without JSON parsing."""
+    if not repo_url or "github.com" not in repo_url:
+        raise HTTPException(status_code=400, detail="A valid public GitHub repository URL is required.")
+
     active_thread_id = thread_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": active_thread_id}}
-    result = await codeit_app.ainvoke({"repo_url": repo_url, "thread_id": active_thread_id}, config=config)
-    final_report = result.get("final_report", {})
-    text_content = format_report_as_text(final_report, repo_url)
-    
-    return StreamingResponse(
-        iter([text_content]),
-        media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": "inline"}
-    )
+    try:
+        result = await codeit_app.ainvoke(
+            {"repo_url": repo_url, "thread_id": active_thread_id, "student_question": None},
+            config=config
+        )
+        final_report = result.get("final_report", {})
+        text_content = format_report_as_text(final_report, repo_url)
+
+        return StreamingResponse(
+            iter([text_content]),
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": "inline", "X-Thread-Id": active_thread_id}
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
 
 # Stuck Student Follow-Up Coaching Endpoint (Restores LangGraph Checkpoint)
 @app.post("/api/student/stuck", response_model=StuckStudentResponse)
@@ -333,6 +377,7 @@ async def stuck_student_followup(request: StuckStudentRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Follow-up coaching failed: {str(e)}")
 
+
 # Inspect Checkpointed State Snapshot
 @app.get("/api/student/checkpoint/{thread_id}")
 async def get_student_checkpoint(thread_id: str):
@@ -340,7 +385,7 @@ async def get_student_checkpoint(thread_id: str):
     state_snap = await codeit_app.aget_state(config)
     if not state_snap or not state_snap.values:
         raise HTTPException(status_code=404, detail=f"No checkpoint found for thread_id '{thread_id}'")
-    
+
     values = state_snap.values
     return {
         "status": "found",
@@ -353,6 +398,7 @@ async def get_student_checkpoint(thread_id: str):
         "findings_count": len(values.get("final_report", {}).get("findings", [])),
         "chat_history": values.get("chat_history", [])
     }
+
 
 # Production Live Server-Sent Events (SSE) Streaming Endpoint
 @app.get("/api/analyze/stream")
@@ -367,20 +413,46 @@ async def analyze_repository_stream(
     config = {"configurable": {"thread_id": active_thread_id}}
 
     async def event_generator():
-        # Live Keep-Alive & Initialization
-        yield f": ping\n\n"
+        yield ": ping\n\n"
         yield f"data: {json.dumps({'event': 'start', 'thread_id': active_thread_id, 'repo_url': repo_url, 'progress': 5, 'message': 'Connecting to GitHub repository and initiating multi-level audit...'})}\n\n"
+        yield f"data: {json.dumps({'event': 'classifying_files', 'model': CLASSIFIER_MODEL, 'progress': 20, 'message': 'Level 1: 8B Model analyzing repository tree structure...'})}\n\n"
+
+        queue: asyncio.Queue = asyncio.Queue()
+
+        async def _produce_stream():
+            try:
+                async for chunk in codeit_app.astream(
+                    {"repo_url": repo_url, "thread_id": active_thread_id, "student_question": None},
+                    config=config,
+                    stream_mode="updates"
+                ):
+                    await queue.put(("chunk", chunk))
+                await queue.put(("done", None))
+            except Exception as exc:
+                await queue.put(("error", str(exc)))
+
+        producer_task = asyncio.create_task(_produce_stream())
+        state_accumulator: Dict[str, Any] = {"thread_id": active_thread_id}
 
         try:
-            state_accumulator = {"thread_id": active_thread_id}
-            yield f"data: {json.dumps({'event': 'classifying_files', 'model': CLASSIFIER_MODEL, 'progress': 20, 'message': 'Level 1: 8B Model analyzing repository tree structure...'})}\n\n"
+            while True:
+                try:
+                    msg_type, payload = await asyncio.wait_for(queue.get(), timeout=8.0)
+                except asyncio.TimeoutError:
+                    # Emit periodic keep-alive heartbeat so Render/Cloudflare/NGINX never close the stream
+                    yield ": ping\n\n"
+                    continue
 
-            async for chunk in codeit_app.astream(
-                {"repo_url": repo_url, "thread_id": active_thread_id},
-                config=config,
-                stream_mode="updates"
-            ):
-                for node_name, node_output in chunk.items():
+                if msg_type == "error":
+                    yield f"data: {json.dumps({'event': 'error', 'message': payload})}\n\n"
+                    break
+                if msg_type == "done":
+                    final_report = state_accumulator.get("final_report", {})
+                    state_accumulator["formatted_text"] = format_report_as_text(final_report, repo_url)
+                    yield f"data: {json.dumps({'event': 'complete', 'status': 'success', 'thread_id': active_thread_id, 'progress': 100, 'formatted_text': state_accumulator['formatted_text'], 'result': state_accumulator})}\n\n"
+                    break
+
+                for node_name, node_output in payload.items():
                     state_accumulator.update(node_output)
 
                     if node_name == "fetcher":
@@ -402,12 +474,11 @@ async def analyze_repository_stream(
                         report = node_output.get("final_report", {})
                         findings = report.get("findings", [])
                         yield f"data: {json.dumps({'event': 'mentor_synthesis_complete', 'model': MENTOR_MODEL, 'overall_score': report.get('overall_score'), 'findings_count': len(findings), 'progress': 95, 'message': 'Level 3: 20B Model synthesized Full Diagnostic Metadata + Socratic Guidance.'})}\n\n"
+        finally:
+            if not producer_task.done():
+                producer_task.cancel()
 
-            yield f"data: {json.dumps({'event': 'complete', 'status': 'success', 'thread_id': active_thread_id, 'progress': 100, 'result': state_accumulator})}\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'event': 'error', 'message': str(e)})}\n\n"
-
-    # Production headers for live streaming across NGINX / Cloudflare
+    # Production headers for live streaming across Render / NGINX / Cloudflare
     headers = {
         "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
@@ -415,6 +486,7 @@ async def analyze_repository_stream(
         "Content-Type": "text/event-stream"
     }
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)
+
 
 # WebSocket Real-Time Streaming Endpoint (Supports Analysis & Checkpointed Socratic Chat)
 @app.websocket("/ws/analyze")
@@ -445,10 +517,12 @@ async def websocket_analyze_endpoint(websocket: WebSocket):
                 })
 
                 result = await codeit_app.ainvoke({"student_question": question}, config=config)
+                guidance = result.get("stuck_response", {})
                 await websocket.send_json({
                     "event": "stuck_guidance_complete",
                     "thread_id": thread_id,
-                    "guidance": result.get("stuck_response", {}),
+                    "formatted_text": format_stuck_guidance_as_text(guidance, question),
+                    "guidance": guidance,
                     "chat_history": result.get("chat_history", [])
                 })
                 continue
@@ -470,9 +544,9 @@ async def websocket_analyze_endpoint(websocket: WebSocket):
                 "message": "Analysis started across multi-level model pipeline"
             })
 
-            state_accumulator = {"thread_id": active_thread_id}
+            state_accumulator: Dict[str, Any] = {"thread_id": active_thread_id}
             async for chunk in codeit_app.astream(
-                {"repo_url": repo_url, "thread_id": active_thread_id},
+                {"repo_url": repo_url, "thread_id": active_thread_id, "student_question": None},
                 config=config,
                 stream_mode="updates"
             ):
@@ -508,11 +582,16 @@ async def websocket_analyze_endpoint(websocket: WebSocket):
                             "progress": 95
                         })
 
+            final_report = state_accumulator.get("final_report", {})
+            formatted_txt = format_report_as_text(final_report, repo_url)
+            state_accumulator["formatted_text"] = formatted_txt
+
             await websocket.send_json({
                 "event": "complete",
                 "status": "success",
                 "thread_id": active_thread_id,
                 "progress": 100,
+                "formatted_text": formatted_txt,
                 "result": state_accumulator
             })
     except WebSocketDisconnect:
@@ -522,6 +601,7 @@ async def websocket_analyze_endpoint(websocket: WebSocket):
             await websocket.send_json({"event": "error", "message": str(e)})
         except Exception:
             pass
+
 
 # GitHub API Helper: Formats PR comment with Full Diagnostic Metadata + Socratic Guidance
 def build_github_pr_comment(final_report: dict, repo_url: str) -> str:
@@ -575,6 +655,7 @@ def build_github_pr_comment(final_report: dict, repo_url: str) -> str:
 
     return "\n".join(comment)
 
+
 # Background Task Worker for Production Webhook Processing
 async def process_github_webhook_job(
     job_id: str,
@@ -584,22 +665,30 @@ async def process_github_webhook_job(
     head_sha: Optional[str],
     installation_id: Optional[int] = None
 ):
-    JOB_STORE[job_id]["status"] = "processing"
+    if job_id in JOB_STORE:
+        JOB_STORE[job_id]["status"] = "processing"
     try:
-        # Run full multi-agent pipeline with checkpointing under job_id thread
+        # Run full multi-agent pipeline with checkpointing and installation_id
         result = await codeit_app.ainvoke(
-            {"repo_url": repo_url, "thread_id": job_id},
+            {
+                "repo_url": repo_url,
+                "thread_id": job_id,
+                "installation_id": installation_id,
+                "student_question": None
+            },
             config={"configurable": {"thread_id": job_id}}
         )
         final_report = result.get("final_report", {})
 
-        JOB_STORE[job_id]["status"] = "completed"
-        JOB_STORE[job_id]["result"] = {
-            "selected_files": result.get("selected_files", []),
-            "security_audit": result.get("security_audit"),
-            "architecture_audit": result.get("architecture_audit"),
-            "final_report": final_report
-        }
+        if job_id in JOB_STORE:
+            JOB_STORE[job_id]["status"] = "completed"
+            JOB_STORE[job_id]["result"] = {
+                "selected_files": result.get("selected_files", []),
+                "security_audit": result.get("security_audit"),
+                "architecture_audit": result.get("architecture_audit"),
+                "final_report": final_report,
+                "formatted_text": format_report_as_text(final_report, repo_url)
+            }
 
         # Resolve GitHub App installation token or fallback Personal Access Token
         auth_token = await resolve_github_auth_token(installation_id)
@@ -618,10 +707,11 @@ async def process_github_webhook_job(
                     comment_body = build_github_pr_comment(final_report, repo_url)
                     pr_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
                     pr_res = await client.post(pr_url, json={"body": comment_body})
-                    JOB_STORE[job_id]["github_pr_comment_status"] = pr_res.status_code
+                    if job_id in JOB_STORE:
+                        JOB_STORE[job_id]["github_pr_comment_status"] = pr_res.status_code
 
-                # 2. Post Commit Status check if commit SHA present
-                if head_sha:
+                # 2. Post Commit Status check if valid commit SHA present
+                if head_sha and head_sha != "0000000000000000000000000000000000000000":
                     overall = final_report.get("overall_score", 0)
                     state_str = "success" if overall >= 70 else "failure"
                     desc = f"CodeIt Score: {overall}/100. Security: {final_report.get('security_score')}/100."
@@ -631,11 +721,14 @@ async def process_github_webhook_job(
                         "description": desc[:140],
                         "context": "codeit/review"
                     })
-                    JOB_STORE[job_id]["github_commit_status"] = status_res.status_code
+                    if job_id in JOB_STORE:
+                        JOB_STORE[job_id]["github_commit_status"] = status_res.status_code
 
     except Exception as e:
-        JOB_STORE[job_id]["status"] = "failed"
-        JOB_STORE[job_id]["error"] = str(e)
+        if job_id in JOB_STORE:
+            JOB_STORE[job_id]["status"] = "failed"
+            JOB_STORE[job_id]["error"] = str(e)
+
 
 # Production GitHub Webhook Receiver
 @app.post("/api/webhook/github", response_model=WebhookResponse)
@@ -685,9 +778,26 @@ async def github_webhook_endpoint(
     pr_number = None
     head_sha = None
     if event_type == "pull_request":
+        action = payload.get("action")
+        if action and action not in ("opened", "synchronize", "reopened"):
+            return {
+                "status": "ignored",
+                "event": event_type,
+                "repo_url": repo_url,
+                "delivery_id": delivery_id,
+                "message": f"Ignored pull_request action '{action}' (only opened, synchronize, reopened trigger audits)."
+            }
         pr_number = payload.get("pull_request", {}).get("number")
         head_sha = payload.get("pull_request", {}).get("head", {}).get("sha")
     elif event_type == "push":
+        if payload.get("deleted") is True or payload.get("after") == "0000000000000000000000000000000000000000":
+            return {
+                "status": "ignored",
+                "event": event_type,
+                "repo_url": repo_url,
+                "delivery_id": delivery_id,
+                "message": "Ignored branch deletion push event."
+            }
         head_sha = payload.get("after")
 
     if not repo_url:
@@ -697,6 +807,11 @@ async def github_webhook_endpoint(
             "delivery_id": delivery_id,
             "message": "No repository URL identified in webhook payload."
         }
+
+    # Evict oldest entry if JOB_STORE reaches capacity to protect Render container memory
+    while len(JOB_STORE) >= MAX_JOB_STORE_SIZE:
+        oldest_key = next(iter(JOB_STORE))
+        del JOB_STORE[oldest_key]
 
     # Register asynchronous job in JOB_STORE
     job_id = str(uuid.uuid4())
@@ -732,12 +847,14 @@ async def github_webhook_endpoint(
         "github_action_taken": f"Job ID: {job_id}"
     }
 
+
 # Query asynchronous webhook audit job status
 @app.get("/api/webhook/jobs/{job_id}")
 async def get_webhook_job_status(job_id: str):
     if job_id not in JOB_STORE:
         raise HTTPException(status_code=404, detail="Job not found")
     return JOB_STORE[job_id]
+
 
 async def test_pipeline(repo_url: str = "https://github.com/pallets/flask"):
     print(f"Running Multi-Level Pipeline on {repo_url}...")
@@ -746,7 +863,10 @@ async def test_pipeline(repo_url: str = "https://github.com/pallets/flask"):
     print(f"- Mentor (20B): {MENTOR_MODEL}")
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
-    result = await codeit_app.ainvoke({"repo_url": repo_url, "thread_id": thread_id}, config=config)
+    result = await codeit_app.ainvoke(
+        {"repo_url": repo_url, "thread_id": thread_id, "student_question": None},
+        config=config
+    )
     print(f"\n--- AUDIT COMPLETED (Thread ID: {thread_id}) ---")
     print(f"Selected Files: {result.get('selected_files', [])}")
     print("\n[SECURITY AUDIT SUMMARY]:")
@@ -756,11 +876,13 @@ async def test_pipeline(repo_url: str = "https://github.com/pallets/flask"):
     print("\n[FINAL SOCRATIC MENTOR REPORT]:")
     print(json.dumps(result.get("final_report"), indent=2))
 
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
         target = sys.argv[2] if len(sys.argv) > 2 else "https://github.com/pallets/flask"
         asyncio.run(test_pipeline(target))
     else:
-        print(f"Starting CodeIt Production Backend API on http://0.0.0.0:8000")
+        port = int(os.getenv("PORT", 8000))
+        print(f"Starting CodeIt Production Backend API on http://0.0.0.0:{port}")
         print(f"Multi-Level Architecture: 8B ({CLASSIFIER_MODEL}) -> 120B ({AUDIT_MODEL}) -> 20B ({MENTOR_MODEL})")
-        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+        uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
