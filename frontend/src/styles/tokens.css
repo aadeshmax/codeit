@@ -1,0 +1,57 @@
+:root {
+  /* Core OLED Dark Surfaces */
+  --bg-canvas: #000000;
+  --bg-bento: #141416;
+  --bg-elevated: #1C1C1E;
+  --bg-elevated-hover: #242428;
+  --bg-drawer: rgba(28, 28, 30, 0.84);
+
+  /* Hairline Borders */
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-active: rgba(10, 132, 255, 0.55);
+
+  /* Typography Colors */
+  --text-primary: #F5F5F7;
+  --text-secondary: #86868B;
+  --text-muted: #515154;
+
+  /* Functional Accents & Threshold Statuses */
+  --accent-blue: #0A84FF;
+  --accent-blue-tint: rgba(10, 132, 255, 0.14);
+
+  --status-healthy: #30D158;
+  --status-healthy-tint: rgba(48, 209, 88, 0.14);
+
+  --status-warning: #FFD60A;
+  --status-warning-tint: rgba(255, 214, 10, 0.14);
+
+  --status-high: #FF9F0A;
+  --status-high-tint: rgba(255, 159, 10, 0.14);
+
+  --status-critical: #FF453A;
+  --status-critical-tint: rgba(255, 69, 58, 0.14);
+
+  /* Syntax Highlighting Tokens (Muted Apple Xcode Dark) */
+  --syntax-keyword: #FF7AB2;
+  --syntax-string: #FC6A5D;
+  --syntax-comment: #6C7986;
+  --syntax-number: #D0BF69;
+  --syntax-fn: #67B7A4;
+  --syntax-type: #9EF1DD;
+
+  /* Radii */
+  --radius-bento: 20px;
+  --radius-inner: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 9999px;
+
+  /* Spacing & Layout */
+  --space-gap: 16px;
+  --space-card: 24px;
+  --container-max: 1320px;
+
+  /* Typography Families */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+}

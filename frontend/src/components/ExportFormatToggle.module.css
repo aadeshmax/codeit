@@ -1,0 +1,69 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-bento);
+  border: 1px solid var(--border-hairline);
+}
+
+.segmentBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color 140ms ease;
+  z-index: 1;
+}
+
+.segmentBtn:hover {
+  color: var(--text-primary);
+}
+
+.segmentBtnActive {
+  color: var(--text-primary);
+}
+
+.activePill {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  z-index: -1;
+}
+
+.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-bento);
+  border: 1px solid var(--border-hairline);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.copyBtn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
+}
+
+.copyBtnDone {
+  border-color: rgba(48, 209, 88, 0.45);
+  color: var(--status-healthy);
+}

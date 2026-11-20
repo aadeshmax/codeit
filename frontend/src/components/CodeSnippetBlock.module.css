@@ -1,0 +1,88 @@
+.container {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-inner);
+  overflow: hidden;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.fileMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.copyBtn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pre {
+  margin: 0;
+  padding: 12px 0;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.row {
+  display: flex;
+  padding: 0 14px;
+}
+
+.lineNum {
+  width: 38px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 14px;
+  color: var(--text-muted);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.lineCode {
+  white-space: pre;
+  color: var(--text-primary);
+}
+
+.keyword {
+  color: var(--syntax-keyword);
+}
+
+.string {
+  color: var(--syntax-string);
+}
+
+.comment {
+  color: var(--syntax-comment);
+}
+
+.number {
+  color: var(--syntax-number);
+}
+
+.fn {
+  color: var(--syntax-fn);
+}

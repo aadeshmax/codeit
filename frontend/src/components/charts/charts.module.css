@@ -1,0 +1,412 @@
+.bentoSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-gap);
+}
+
+.summaryStrip {
+  background: var(--bg-bento);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-bento);
+  padding: 18px 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.summaryLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.summaryText {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  max-width: 920px;
+}
+
+.threadBadge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--space-gap);
+}
+
+.cardSlot {
+  grid-column: span 3;
+  display: flex;
+}
+
+.card {
+  width: 100%;
+  background: var(--bg-bento);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-bento);
+  padding: var(--space-card);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 310px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cardTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardIcon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.cardTitle {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.cardHint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Gauge */
+.gaugeWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 16px;
+}
+
+.gaugeSvgWrap {
+  position: relative;
+  width: 156px;
+  height: 156px;
+}
+
+.gaugeSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.gaugeCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.gaugeScore {
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.gaugeStatus {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.subMetrics {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.subMetric {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-inner);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.subMetricLabel {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.subMetricVal {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* Radar */
+.radarWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.radarSvg {
+  width: 100%;
+  max-width: 224px;
+  height: auto;
+  overflow: visible;
+}
+
+.radarAxisBtn {
+  cursor: pointer;
+}
+
+.radarTooltip {
+  margin-top: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.radarTooltipStrong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Severity Donut */
+.donutWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+}
+
+.donutSvgWrap {
+  position: relative;
+  width: 136px;
+  height: 136px;
+}
+
+.donutSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.donutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donutCount {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.donutSub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.legendGrid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  font-size: 12px;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.legendItem:hover {
+  background: var(--bg-elevated-hover);
+  border-color: var(--border-strong);
+}
+
+.legendItemActive {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-tint);
+}
+
+.legendLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.legendItemActive .legendLeft {
+  color: var(--text-primary);
+}
+
+.legendDot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+}
+
+.legendVal {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* File Hotspots */
+.hotspotList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  justify-content: center;
+}
+
+.hotspotRow {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-inner);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.hotspotRow:hover {
+  background: var(--bg-elevated-hover);
+  border-color: var(--border-strong);
+}
+
+.hotspotRowActive {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-tint);
+}
+
+.hotspotTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.hotspotPath {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotspotCount {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.barTrack {
+  width: 100%;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transform-origin: left center;
+}
+
+.emptyChart {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+@media (max-width: 1120px) {
+  .cardSlot {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 680px) {
+  .cardSlot {
+    grid-column: span 12;
+  }
+  .summaryStrip {
+    flex-direction: column;
+  }
+}
