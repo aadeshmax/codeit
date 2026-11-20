@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
 import { LayoutGroup, MotionConfig, motion } from "framer-motion";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Webhook } from "lucide-react";
 import { AnalyticsBentoGrid } from "./components/AnalyticsBentoGrid";
 import type { ViewMode } from "./components/ExportFormatToggle";
 import { FindingsList } from "./components/FindingsList";
 import { RepoPipelineHeader } from "./components/RepoPipelineHeader";
 import { SocraticMentorDrawer } from "./components/SocraticMentorDrawer";
+import { WebhookAppModal } from "./components/WebhookAppModal";
 import { useAnalyzeStream } from "./hooks/useAnalyzeStream";
 import { formatRepoSlug } from "./lib/derive";
 import { APPLE_SPRING } from "./lib/motion";
@@ -28,6 +29,7 @@ export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
   const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [webhookModalOpen, setWebhookModalOpen] = useState(false);
   const [selectedFinding, setSelectedFinding] =
     useState<DiagnosticFinding | null>(null);
 
@@ -46,6 +48,7 @@ export function App() {
     setFilters(EMPTY_FILTERS);
     setViewMode("dashboard");
     setDrawerOpen(false);
+    setWebhookModalOpen(false);
     setSelectedFinding(null);
     stream.reset();
   }, [stream]);
@@ -99,6 +102,7 @@ export function App() {
             onCancel={stream.cancel}
             onReset={handleReset}
             onSelectFile={handleSelectFile}
+            onOpenWebhookModal={() => setWebhookModalOpen(true)}
           />
         </LayoutGroup>
 
@@ -176,14 +180,24 @@ export function App() {
                   <span className={styles.repoSlug}>
                     {formatRepoSlug(stream.result.repo_url)}
                   </span>
-                  <button
-                    type="button"
-                    className={styles.openMentorBtn}
-                    onClick={() => handleAskMentor(null)}
-                  >
-                    <MessageSquare size={14} strokeWidth={1.5} />
-                    <span>Ask Mentor</span>
-                  </button>
+                  <div className={styles.repoActions}>
+                    <button
+                      type="button"
+                      className={styles.openMentorBtn}
+                      onClick={() => setWebhookModalOpen(true)}
+                    >
+                      <Webhook size={14} strokeWidth={1.5} />
+                      <span>Add GitHub App</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.openMentorBtn}
+                      onClick={() => handleAskMentor(null)}
+                    >
+                      <MessageSquare size={14} strokeWidth={1.5} />
+                      <span>Ask Mentor</span>
+                    </button>
+                  </div>
                 </div>
 
                 {viewMode === "dashboard" ? (
@@ -237,6 +251,12 @@ export function App() {
           finding={selectedFinding}
           onClose={() => setDrawerOpen(false)}
           onReanalyze={handleReanalyzeCurrent}
+        />
+
+        <WebhookAppModal
+          open={webhookModalOpen}
+          repoUrl={stream.result?.repo_url ?? (stream.repoUrl || null)}
+          onClose={() => setWebhookModalOpen(false)}
         />
       </div>
     </MotionConfig>

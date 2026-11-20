@@ -11,7 +11,8 @@ import {
   Layers,
   Shield,
   Square,
-  Terminal
+  Terminal,
+  Webhook
 } from "lucide-react";
 import type { CompletedTiers } from "../hooks/useAnalyzeStream";
 import { APPLE_SPRING } from "../lib/motion";
@@ -38,6 +39,7 @@ interface RepoPipelineHeaderProps {
   onCancel: () => void;
   onReset: () => void;
   onSelectFile: (filePath: string | null) => void;
+  onOpenWebhookModal: () => void;
 }
 
 export function RepoPipelineHeader({
@@ -57,7 +59,8 @@ export function RepoPipelineHeader({
   onSubmitRepo,
   onCancel,
   onReset,
-  onSelectFile
+  onSelectFile,
+  onOpenWebhookModal
 }: RepoPipelineHeaderProps) {
   const [inputValue, setInputValue] = useState("");
   const isCompact = stage !== "idle";
@@ -143,6 +146,17 @@ export function RepoPipelineHeader({
             <Layers size={13} strokeWidth={1.5} />
             <span>20B Socratic Mentor</span>
           </span>
+        </div>
+
+        <div className={styles.heroWebhookWrap}>
+          <button
+            type="button"
+            className={styles.heroWebhookBtn}
+            onClick={onOpenWebhookModal}
+          >
+            <Webhook size={14} strokeWidth={1.5} />
+            <span>Connect GitHub App Webhook</span>
+          </button>
         </div>
       </section>
     );

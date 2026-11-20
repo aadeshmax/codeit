@@ -28,6 +28,13 @@
   color: var(--text-secondary);
 }
 
+.repoActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .openMentorBtn {
   display: inline-flex;
   align-items: center;

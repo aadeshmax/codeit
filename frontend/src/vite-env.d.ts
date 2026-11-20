@@ -2,6 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
+  readonly VITE_GITHUB_APP_SLUG?: string;
+  readonly VITE_GITHUB_APP_ID?: string;
 }
 
 interface ImportMeta {
