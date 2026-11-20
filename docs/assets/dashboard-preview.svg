@@ -1,0 +1,195 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="100%" height="100%">
+  <defs>
+    <style>
+      .ui { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui, sans-serif; }
+      .mono { font-family: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    </style>
+  </defs>
+  <rect width="1200" height="720" rx="16" fill="#000000" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <rect x="1" y="1" width="1198" height="38" rx="15" fill="#0C0C0E"/>
+  <line x1="0" y1="39" x2="1200" y2="39" stroke="rgba(255,255,255,0.08)"/>
+  <circle cx="20" cy="20" r="5.5" fill="#FF453A"/>
+  <circle cx="38" cy="20" r="5.5" fill="#FFD60A"/>
+  <circle cx="56" cy="20" r="5.5" fill="#30D158"/>
+  <text x="600" y="24" text-anchor="middle" fill="#86868B" font-size="11.5" class="mono">codelit-z5gy.onrender.com — CodeIt Diagnostic Dashboard</text>
+
+  <!-- Header Bar -->
+  <g transform="translate(32, 56)">
+    <rect x="0" y="0" width="34" height="34" rx="8" fill="#141416" stroke="rgba(255,255,255,0.12)"/>
+    <text x="17" y="22" text-anchor="middle" fill="#0A84FF" font-size="14" font-weight="700" class="mono">&lt;/&gt;</text>
+    <text x="46" y="16" fill="#F5F5F7" font-size="15.5" font-weight="600" class="ui">CodeIt</text>
+    <text x="46" y="31" fill="#86868B" font-size="11" class="ui">Multi-Model Socratic Auditor</text>
+
+    <rect x="235" y="0" width="490" height="36" rx="10" fill="#141416" stroke="rgba(255,255,255,0.12)"/>
+    <text x="252" y="22" fill="#F5F5F7" font-size="12" class="mono">https://github.com/aadeshmax/codeit</text>
+    <rect x="636" y="4" width="84" height="28" rx="7" fill="#0A84FF"/>
+    <text x="678" y="22" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="600" class="ui">Analyze</text>
+
+    <rect x="738" y="0" width="168" height="36" rx="10" fill="#141416" stroke="rgba(10,132,255,0.45)"/>
+    <circle cx="756" cy="18" r="3.5" fill="#30D158"/>
+    <text x="768" y="22" fill="#F5F5F7" font-size="11.5" font-weight="500" class="ui">+ Add GitHub App</text>
+
+    <rect x="918" y="0" width="218" height="36" rx="10" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+    <rect x="922" y="4" width="108" height="28" rx="7" fill="#1C1C1E" stroke="rgba(255,255,255,0.1)"/>
+    <text x="976" y="22" text-anchor="middle" fill="#F5F5F7" font-size="11.5" font-weight="600" class="ui">Dashboard</text>
+    <text x="1082" y="22" text-anchor="middle" fill="#86868B" font-size="11.5" class="ui">Plain Text</text>
+  </g>
+
+  <!-- 2px SSE Progress & Model Tier Stepper -->
+  <g transform="translate(32, 104)">
+    <rect x="0" y="0" width="1136" height="2" rx="1" fill="#0A84FF"/>
+    <rect x="0" y="10" width="196" height="24" rx="12" fill="#141416" stroke="rgba(48,209,88,0.35)"/>
+    <circle cx="13" cy="22" r="3" fill="#30D158"/>
+    <text x="23" y="26" fill="#F5F5F7" font-size="10.5" class="mono">8B Classifier · llama-3.1-8b</text>
+
+    <rect x="206" y="10" width="246" height="24" rx="12" fill="#141416" stroke="rgba(48,209,88,0.35)"/>
+    <circle cx="219" cy="22" r="3" fill="#30D158"/>
+    <text x="229" y="26" fill="#F5F5F7" font-size="10.5" class="mono">120B Security &amp; Arch · gpt-oss-120b</text>
+
+    <rect x="462" y="10" width="212" height="24" rx="12" fill="#141416" stroke="rgba(48,209,88,0.35)"/>
+    <circle cx="475" cy="22" r="3" fill="#30D158"/>
+    <text x="485" y="26" fill="#F5F5F7" font-size="10.5" class="mono">20B Socratic Mentor · gpt-oss-20b</text>
+
+    <rect x="752" y="10" width="56" height="24" rx="12" fill="#0A84FF"/>
+    <text x="780" y="26" text-anchor="middle" fill="#FFFFFF" font-size="10.5" font-weight="600" class="mono">All (7)</text>
+    <rect x="816" y="10" width="102" height="24" rx="12" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+    <text x="867" y="26" text-anchor="middle" fill="#86868B" font-size="10.5" class="mono">auth/login.py</text>
+    <rect x="926" y="10" width="102" height="24" rx="12" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+    <text x="977" y="26" text-anchor="middle" fill="#86868B" font-size="10.5" class="mono">api/routes.py</text>
+    <rect x="1036" y="10" width="100" height="24" rx="12" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+    <text x="1086" y="26" text-anchor="middle" fill="#86868B" font-size="10.5" class="mono">db/session.py</text>
+  </g>
+
+  <!-- Executive Summary Strip -->
+  <g transform="translate(32, 150)">
+    <rect width="1136" height="54" rx="14" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+    <text x="18" y="20" fill="#86868B" font-size="10" font-weight="600" letter-spacing="0.8" class="ui">EXECUTIVE SUMMARY</text>
+    <text x="18" y="39" fill="#F5F5F7" font-size="12.5" class="ui">Audit completed across 5 classified files. Found 2 security vulnerabilities (CWE-89, CWE-798), 2 async I/O bottlenecks, and 1 syntax defect.</text>
+    <rect x="1024" y="13" width="96" height="28" rx="7" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+    <text x="1072" y="31" text-anchor="middle" fill="#86868B" font-size="11" class="mono">ID · 9f4c2a1b</text>
+  </g>
+
+  <!-- 4 BENTO TELEMETRY CARDS -->
+  <g transform="translate(32, 218)">
+    <!-- Card 1: Overall Health Radial Gauge -->
+    <g transform="translate(0, 0)">
+      <rect width="272" height="246" rx="20" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" fill="#F5F5F7" font-size="13" font-weight="600" class="ui">Overall Health</text>
+      <rect x="192" y="13" width="62" height="20" rx="10" fill="rgba(48,209,88,0.14)" stroke="rgba(48,209,88,0.35)"/>
+      <text x="223" y="27" text-anchor="middle" fill="#30D158" font-size="10.5" font-weight="600" class="ui">Healthy</text>
+      <circle cx="136" cy="118" r="52" fill="none" stroke="#1C1C1E" stroke-width="9"/>
+      <circle cx="136" cy="118" r="52" fill="none" stroke="#30D158" stroke-width="9" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="71.8" transform="rotate(-90 136 118)"/>
+      <text x="136" y="125" text-anchor="middle" fill="#F5F5F7" font-size="31" font-weight="700" class="mono">78</text>
+      <text x="136" y="143" text-anchor="middle" fill="#86868B" font-size="10.5" class="mono">/ 100</text>
+      <line x1="20" y1="194" x2="252" y2="194" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="218" fill="#86868B" font-size="11" class="ui">Security</text>
+      <text x="110" y="218" text-anchor="end" fill="#FFD60A" font-size="12" font-weight="600" class="mono">72/100</text>
+      <text x="142" y="218" fill="#86868B" font-size="11" class="ui">Architecture</text>
+      <text x="252" y="218" text-anchor="end" fill="#30D158" font-size="12" font-weight="600" class="mono">84/100</text>
+    </g>
+
+    <!-- Card 2: 4-Axis Radar Chart -->
+    <g transform="translate(288, 0)">
+      <rect width="272" height="246" rx="20" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" fill="#F5F5F7" font-size="13" font-weight="600" class="ui">Multi-Axis Radar</text>
+      <polygon points="136,68 196,128 136,188 76,128" fill="none" stroke="rgba(255,255,255,0.08)"/>
+      <polygon points="136,88 176,128 136,168 96,128" fill="none" stroke="rgba(255,255,255,0.08)"/>
+      <polygon points="136,108 156,128 136,148 116,128" fill="none" stroke="rgba(255,255,255,0.08)"/>
+      <line x1="136" y1="68" x2="136" y2="188" stroke="rgba(255,255,255,0.08)"/>
+      <line x1="76" y1="128" x2="196" y2="128" stroke="rgba(255,255,255,0.08)"/>
+      <polygon points="136,85 186,128 136,174 83,128" fill="rgba(10,132,255,0.18)" stroke="#0A84FF" stroke-width="2"/>
+      <circle cx="136" cy="85" r="3.5" fill="#0A84FF"/>
+      <circle cx="186" cy="128" r="3.5" fill="#0A84FF"/>
+      <circle cx="136" cy="174" r="3.5" fill="#0A84FF"/>
+      <circle cx="83" cy="128" r="3.5" fill="#0A84FF"/>
+      <text x="136" y="58" text-anchor="middle" fill="#F5F5F7" font-size="10.5" class="mono">Security 72</text>
+      <text x="202" y="132" fill="#F5F5F7" font-size="10.5" class="mono">Arch 84</text>
+      <text x="136" y="206" text-anchor="middle" fill="#F5F5F7" font-size="10.5" class="mono">Efficiency 76</text>
+      <text x="70" y="132" text-anchor="end" fill="#F5F5F7" font-size="10.5" class="mono">Syntax 88</text>
+    </g>
+
+    <!-- Card 3: Severity Donut -->
+    <g transform="translate(576, 0)">
+      <rect width="272" height="246" rx="20" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" fill="#F5F5F7" font-size="13" font-weight="600" class="ui">Severity Breakdown</text>
+      <circle cx="96" cy="134" r="46" fill="none" stroke="#1C1C1E" stroke-width="13"/>
+      <circle cx="96" cy="134" r="46" fill="none" stroke="#FF453A" stroke-width="13" stroke-dasharray="40 249" stroke-dashoffset="0" transform="rotate(-90 96 134)"/>
+      <circle cx="96" cy="134" r="46" fill="none" stroke="#FF9F0A" stroke-width="13" stroke-dasharray="80 209" stroke-dashoffset="-42" transform="rotate(-90 96 134)"/>
+      <circle cx="96" cy="134" r="46" fill="none" stroke="#FFD60A" stroke-width="13" stroke-dasharray="120 169" stroke-dashoffset="-124" transform="rotate(-90 96 134)"/>
+      <circle cx="96" cy="134" r="46" fill="none" stroke="#30D158" stroke-width="13" stroke-dasharray="38 251" stroke-dashoffset="-246" transform="rotate(-90 96 134)"/>
+      <text x="96" y="139" text-anchor="middle" fill="#F5F5F7" font-size="22" font-weight="700" class="mono">7</text>
+      <text x="96" y="154" text-anchor="middle" fill="#86868B" font-size="9.5" class="ui">Findings</text>
+      <g transform="translate(164, 82)">
+        <circle cx="6" cy="8" r="4" fill="#FF453A"/><text x="16" y="12" fill="#F5F5F7" font-size="11.5" class="ui">Critical</text><text x="86" y="12" text-anchor="end" fill="#86868B" font-size="11.5" class="mono">1</text>
+        <circle cx="6" cy="34" r="4" fill="#FF9F0A"/><text x="16" y="38" fill="#F5F5F7" font-size="11.5" class="ui">High</text><text x="86" y="38" text-anchor="end" fill="#86868B" font-size="11.5" class="mono">2</text>
+        <circle cx="6" cy="60" r="4" fill="#FFD60A"/><text x="16" y="64" fill="#F5F5F7" font-size="11.5" class="ui">Medium</text><text x="86" y="64" text-anchor="end" fill="#86868B" font-size="11.5" class="mono">3</text>
+        <circle cx="6" cy="86" r="4" fill="#30D158"/><text x="16" y="90" fill="#F5F5F7" font-size="11.5" class="ui">Low</text><text x="86" y="90" text-anchor="end" fill="#86868B" font-size="11.5" class="mono">1</text>
+      </g>
+    </g>
+
+    <!-- Card 4: File Hotspots -->
+    <g transform="translate(864, 0)">
+      <rect width="272" height="246" rx="20" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" fill="#F5F5F7" font-size="13" font-weight="600" class="ui">File Hotspots</text>
+      <g transform="translate(20, 56)">
+        <text x="0" y="12" fill="#F5F5F7" font-size="11" class="mono">auth/login.py</text><text x="232" y="12" text-anchor="end" fill="#FF453A" font-size="11" font-weight="600" class="mono">3</text>
+        <rect x="0" y="18" width="232" height="6" rx="3" fill="#1C1C1E"/><rect x="0" y="18" width="198" height="6" rx="3" fill="#FF453A"/>
+      </g>
+      <g transform="translate(20, 100)">
+        <text x="0" y="12" fill="#F5F5F7" font-size="11" class="mono">api/routes.py</text><text x="232" y="12" text-anchor="end" fill="#FF9F0A" font-size="11" font-weight="600" class="mono">2</text>
+        <rect x="0" y="18" width="232" height="6" rx="3" fill="#1C1C1E"/><rect x="0" y="18" width="136" height="6" rx="3" fill="#FF9F0A"/>
+      </g>
+      <g transform="translate(20, 144)">
+        <text x="0" y="12" fill="#F5F5F7" font-size="11" class="mono">db/session.py</text><text x="232" y="12" text-anchor="end" fill="#FFD60A" font-size="11" font-weight="600" class="mono">1</text>
+        <rect x="0" y="18" width="232" height="6" rx="3" fill="#1C1C1E"/><rect x="0" y="18" width="72" height="6" rx="3" fill="#FFD60A"/>
+      </g>
+      <g transform="translate(20, 188)">
+        <text x="0" y="12" fill="#F5F5F7" font-size="11" class="mono">utils/parser.py</text><text x="232" y="12" text-anchor="end" fill="#FFD60A" font-size="11" font-weight="600" class="mono">1</text>
+        <rect x="0" y="18" width="232" height="6" rx="3" fill="#1C1C1E"/><rect x="0" y="18" width="72" height="6" rx="3" fill="#FFD60A"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- DIAGNOSTIC FINDINGS ROW -->
+  <g transform="translate(32, 480)">
+    <g transform="translate(0, 0)">
+      <rect width="560" height="214" rx="20" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" fill="#F5F5F7" font-size="12" font-weight="600" class="mono">auth/login.py</text>
+      <rect x="122" y="14" width="40" height="19" rx="5" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+      <text x="142" y="27" text-anchor="middle" fill="#86868B" font-size="10.5" class="mono">L42</text>
+      <rect x="394" y="13" width="70" height="20" rx="10" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+      <text x="429" y="27" text-anchor="middle" fill="#F5F5F7" font-size="10.5" class="ui">Security</text>
+      <rect x="472" y="13" width="68" height="20" rx="10" fill="rgba(255,69,58,0.14)" stroke="rgba(255,69,58,0.35)"/>
+      <text x="506" y="27" text-anchor="middle" fill="#FF453A" font-size="10.5" font-weight="600" class="ui">Critical</text>
+      <text x="20" y="54" fill="#F5F5F7" font-size="14" font-weight="600" class="ui">CWE-89: Unparameterized SQL Query String Interpolation</text>
+      <rect x="20" y="66" width="520" height="40" rx="9" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+      <text x="32" y="90" fill="#515154" font-size="11.5" class="mono">42</text>
+      <text x="56" y="90" fill="#F5F5F7" font-size="11.5" class="mono">cursor.execute(f"SELECT * FROM users WHERE email = '{user_email}'")</text>
+      <rect x="20" y="118" width="520" height="52" rx="9" fill="#1C1C1E" stroke="rgba(10,132,255,0.28)"/>
+      <text x="32" y="134" fill="#0A84FF" font-size="9.5" font-weight="600" letter-spacing="0.7" class="ui">SOCRATIC GUIDING QUESTION</text>
+      <text x="32" y="153" fill="#F5F5F7" font-size="11.5" class="ui">Since user_email goes straight into the SQL string, how can you pass it as a bound parameter tuple?</text>
+      <text x="20" y="196" fill="#86868B" font-size="11" class="mono">Checklist: 1/2 completed · OWASP A03:2021</text>
+      <text x="540" y="196" text-anchor="end" fill="#0A84FF" font-size="11.5" font-weight="600" class="ui">Ask Mentor about this →</text>
+    </g>
+
+    <g transform="translate(576, 0)">
+      <rect width="560" height="214" rx="20" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" fill="#F5F5F7" font-size="12" font-weight="600" class="mono">api/routes.py</text>
+      <rect x="122" y="14" width="40" height="19" rx="5" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+      <text x="142" y="27" text-anchor="middle" fill="#86868B" font-size="10.5" class="mono">L87</text>
+      <rect x="386" y="13" width="78" height="20" rx="10" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+      <text x="425" y="27" text-anchor="middle" fill="#F5F5F7" font-size="10.5" class="ui">Efficiency</text>
+      <rect x="472" y="13" width="68" height="20" rx="10" fill="rgba(255,159,10,0.14)" stroke="rgba(255,159,10,0.35)"/>
+      <text x="506" y="27" text-anchor="middle" fill="#FF9F0A" font-size="10.5" font-weight="600" class="ui">High</text>
+      <text x="20" y="54" fill="#F5F5F7" font-size="14" font-weight="600" class="ui">Synchronous Blocking HTTP Call Inside Async FastAPI Route</text>
+      <rect x="20" y="66" width="520" height="40" rx="9" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+      <text x="32" y="90" fill="#515154" font-size="11.5" class="mono">87</text>
+      <text x="56" y="90" fill="#F5F5F7" font-size="11.5" class="mono">resp = requests.get(upstream_url, timeout=10)  # freezes event loop</text>
+      <rect x="20" y="118" width="520" height="52" rx="9" fill="#1C1C1E" stroke="rgba(10,132,255,0.28)"/>
+      <text x="32" y="134" fill="#0A84FF" font-size="9.5" font-weight="600" letter-spacing="0.7" class="ui">SOCRATIC GUIDING QUESTION</text>
+      <text x="32" y="153" fill="#F5F5F7" font-size="11.5" class="ui">What happens to other concurrent requests when requests.get blocks the single-threaded async loop?</text>
+      <text x="20" y="196" fill="#86868B" font-size="11" class="mono">Checklist: 2/2 completed · Async/IO Lifecycle</text>
+      <text x="540" y="196" text-anchor="end" fill="#0A84FF" font-size="11.5" font-weight="600" class="ui">Ask Mentor about this →</text>
+    </g>
+  </g>
+</svg>

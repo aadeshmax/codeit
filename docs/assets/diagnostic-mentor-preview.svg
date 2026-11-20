@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="100%" height="100%">
+  <defs>
+    <style>
+      .ui { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui, sans-serif; }
+      .mono { font-family: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    </style>
+  </defs>
+  <rect width="1200" height="440" rx="16" fill="#000000" stroke="rgba(255,255,255,0.12)"/>
+
+  <!-- Left: Full Diagnostic Card with Checklist & Verification Challenge -->
+  <g transform="translate(24, 24)">
+    <rect width="636" height="392" rx="20" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+    <text x="24" y="32" fill="#F5F5F7" font-size="13" font-weight="600" class="mono">auth/login.py</text>
+    <rect x="134" y="16" width="46" height="22" rx="6" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+    <text x="157" y="31" text-anchor="middle" fill="#86868B" font-size="11" class="mono">L42</text>
+
+    <rect x="462" y="16" width="72" height="22" rx="11" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+    <text x="498" y="31" text-anchor="middle" fill="#F5F5F7" font-size="11" class="ui">Security</text>
+    <rect x="542" y="16" width="70" height="22" rx="11" fill="rgba(255,69,58,0.14)" stroke="rgba(255,69,58,0.35)"/>
+    <text x="577" y="31" text-anchor="middle" fill="#FF453A" font-size="11" font-weight="600" class="ui">Critical</text>
+
+    <text x="24" y="62" fill="#F5F5F7" font-size="15.5" font-weight="600" class="ui">CWE-89: Unparameterized SQL Query String Interpolation</text>
+
+    <!-- Code Snippet -->
+    <rect x="24" y="76" width="588" height="44" rx="10" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+    <text x="38" y="102" fill="#515154" font-size="12" class="mono">42</text>
+    <text x="66" y="102" fill="#F5F5F7" font-size="12" class="mono">cursor.execute(f"SELECT * FROM users WHERE email = '{user_email}'")</text>
+
+    <!-- Socratic Question -->
+    <rect x="24" y="132" width="588" height="58" rx="10" fill="#1C1C1E" stroke="rgba(10,132,255,0.32)"/>
+    <text x="38" y="150" fill="#0A84FF" font-size="10" font-weight="600" letter-spacing="0.8" class="ui">SOCRATIC GUIDING QUESTION</text>
+    <text x="38" y="172" fill="#F5F5F7" font-size="12.5" class="ui">Since user_email goes straight into the SQL string, what parameterized method treats it strictly as data?</text>
+
+    <!-- Interactive Checklist -->
+    <text x="24" y="214" fill="#86868B" font-size="10.5" font-weight="600" letter-spacing="0.8" class="ui">INVESTIGATION CHECKLIST (PERSISTED IN LOCALSTORAGE)</text>
+    <text x="612" y="214" text-anchor="end" fill="#30D158" font-size="11" font-weight="600" class="mono">1/2</text>
+
+    <rect x="24" y="224" width="588" height="34" rx="8" fill="#1C1C1E" stroke="rgba(48,209,88,0.35)"/>
+    <rect x="36" y="233" width="16" height="16" rx="4" fill="#30D158"/>
+    <text x="44" y="245" text-anchor="middle" fill="#000000" font-size="11" font-weight="700" class="ui">✓</text>
+    <text x="62" y="245" fill="#86868B" font-size="12" text-decoration="line-through" class="ui">Open auth/login.py around line 42 and trace where user_email originates.</text>
+
+    <rect x="24" y="264" width="588" height="34" rx="8" fill="#1C1C1E" stroke="rgba(255,255,255,0.08)"/>
+    <rect x="36" y="273" width="16" height="16" rx="4" fill="none" stroke="#86868B"/>
+    <text x="62" y="285" fill="#F5F5F7" font-size="12" class="ui">Replace the f-string with a placeholder (?) or (%s) and pass (user_email,) as a parameter tuple.</text>
+
+    <!-- Verification Challenge -->
+    <rect x="24" y="310" width="588" height="44" rx="10" fill="#1C1C1E" stroke="rgba(255,214,10,0.25)"/>
+    <text x="38" y="327" fill="#FFD60A" font-size="10" font-weight="600" letter-spacing="0.8" class="ui">VERIFICATION CHALLENGE</text>
+    <text x="38" y="344" fill="#F5F5F7" font-size="11.5" class="ui">Test with input `' OR '1'='1` and verify the query returns zero rows instead of bypassing login.</text>
+
+    <text x="612" y="378" text-anchor="end" fill="#0A84FF" font-size="12" font-weight="600" class="ui">Ask Mentor about this →</text>
+  </g>
+
+  <!-- Right: Socratic Mentor Slide-Over Drawer (POST /api/student/stuck) -->
+  <g transform="translate(676, 24)">
+    <rect width="500" height="392" rx="20" fill="#18181B" stroke="rgba(10,132,255,0.4)"/>
+    <text x="24" y="32" fill="#F5F5F7" font-size="14" font-weight="600" class="ui">Socratic Mentor Coaching Drawer</text>
+    <rect x="364" y="15" width="112" height="22" rx="11" fill="rgba(10,132,255,0.16)" stroke="rgba(10,132,255,0.35)"/>
+    <text x="420" y="30" text-anchor="middle" fill="#0A84FF" font-size="10.5" font-weight="600" class="mono">gpt-oss-20b</text>
+    <line x1="24" y1="48" x2="476" y2="48" stroke="rgba(255,255,255,0.08)"/>
+
+    <!-- Student Question Bubble -->
+    <rect x="84" y="62" width="392" height="46" rx="12" fill="#0A84FF"/>
+    <text x="98" y="82" fill="#FFFFFF" font-size="11.5" font-weight="500" class="ui">I tried cursor.execute("SELECT * FROM users WHERE email = ?",</text>
+    <text x="98" y="98" fill="#FFFFFF" font-size="11.5" font-weight="500" class="ui">user_email) but Python threw a TypeError: parameters are of unsupported type.</text>
+
+    <!-- Mentor Diagnosis Response -->
+    <rect x="24" y="122" width="452" height="206" rx="14" fill="#141416" stroke="rgba(255,255,255,0.08)"/>
+    <text x="38" y="144" fill="#86868B" font-size="10" font-weight="600" letter-spacing="0.8" class="ui">TECHNICAL DIAGNOSIS</text>
+    <text x="38" y="163" fill="#F5F5F7" font-size="11.5" class="ui">The DB-API 2.0 execute() method expects a sequence (like a tuple or list)</text>
+    <text x="38" y="180" fill="#F5F5F7" font-size="11.5" class="ui">as its second argument. Passing a bare string makes the driver iterate over</text>
+    <text x="38" y="197" fill="#F5F5F7" font-size="11.5" class="ui">each individual character in user_email instead of binding a single value.</text>
+
+    <rect x="38" y="212" width="424" height="52" rx="9" fill="#1C1C1E" stroke="rgba(10,132,255,0.28)"/>
+    <text x="50" y="229" fill="#0A84FF" font-size="9.5" font-weight="600" letter-spacing="0.7" class="ui">FOLLOW-UP SOCRATIC NUDGE</text>
+    <text x="50" y="248" fill="#F5F5F7" font-size="11.5" class="ui">How do you write a single-element tuple in Python so user_email is passed as 1 item?</text>
+
+    <text x="38" y="286" fill="#30D158" font-size="10.5" font-weight="600" class="mono">→ Checkpoint Thread Resumed (Zero Re-Scan · LangGraph State)</text>
+    <text x="38" y="308" fill="#86868B" font-size="11" class="ui">Step: Wrap the second argument in a 1-tuple with a trailing comma.</text>
+
+    <!-- Follow-up Input Box -->
+    <rect x="24" y="342" width="372" height="34" rx="9" fill="#141416" stroke="rgba(255,255,255,0.12)"/>
+    <text x="38" y="363" fill="#86868B" font-size="11.5" class="ui">Ask a follow-up question on this thread...</text>
+    <rect x="404" y="342" width="72" height="34" rx="9" fill="#0A84FF"/>
+    <text x="440" y="363" text-anchor="middle" fill="#FFFFFF" font-size="11.5" font-weight="600" class="ui">Send</text>
+  </g>
+</svg>
