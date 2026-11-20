@@ -15,6 +15,11 @@ codeit-backend/.env
 api.txt
 *.pem
 
+# Frontend build & dependencies
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
 # IDE / System
 .vscode/
 .idea/

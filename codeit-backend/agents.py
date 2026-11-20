@@ -207,7 +207,10 @@ Return empty issues and a score of 100 if the code is clean."""),
     chain = prompt | structured_llm
     try:
         res = await chain.ainvoke({"code_context": state["code_context"]})
-        return {"security_audit": res.model_dump()}
+        dumped = res.model_dump()
+        if not dumped.get("issues") and dumped.get("security_score", 0) == 0:
+            dumped["security_score"] = 100
+        return {"security_audit": dumped}
     except Exception as e:
         print(f"Warning: Security agent fallback triggered ({e})")
         return {"security_audit": SecurityAudit(issues=[], security_score=100).model_dump()}
@@ -217,22 +220,25 @@ Return empty issues and a score of 100 if the code is clean."""),
 async def architecture_agent_node(state: CodeItState):
     structured_llm = groq_llm_120b.with_structured_output(ArchitectureAudit)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are Agent 2: Software Architect & Efficiency Auditor powered by OpenAI OSS 120B.
-Identify poor modularity, O(N^2) loops, blocking I/O in async routes, resource leaks, and design flaws.
-Inspect the line numbers prefixed in the code context. For every bottleneck found, provide:
+        ("system", """You are Agent 2: Software Architect, Efficiency & Syntax Auditor powered by OpenAI OSS 120B.
+Identify syntax/parse errors (missing brackets, invalid indentation, unterminated strings, invalid syntax), poor modularity, O(N^2) loops, blocking I/O in async routes, resource leaks, and design flaws.
+Inspect the line numbers prefixed in the code context. For every bottleneck or syntax error found, provide:
 - file_path: exact file path
-- line_number: exact line number where the bottleneck occurs
+- line_number: exact line number where the issue occurs
 - code_snippet: the exact problematic code snippet
-- category: "Architecture", "Complexity", "Modularity", or "Async/IO"
-- flaw: specific technical description of the bottleneck
-- impact: degradation in throughput, latency, or maintainability in production
+- category: "Syntax", "Architecture", "Complexity", "Modularity", or "Async/IO"
+- flaw: specific technical description of the syntax error or bottleneck
+- impact: runtime failure, crash, or degradation in throughput, latency, or maintainability
 Return empty bottlenecks and a score of 100 if the code is clean."""),
         ("human", "{code_context}")
     ])
     chain = prompt | structured_llm
     try:
         res = await chain.ainvoke({"code_context": state["code_context"]})
-        return {"architecture_audit": res.model_dump()}
+        dumped = res.model_dump()
+        if not dumped.get("bottlenecks") and dumped.get("architecture_score", 0) == 0:
+            dumped["architecture_score"] = 100
+        return {"architecture_audit": dumped}
     except Exception as e:
         print(f"Warning: Architecture agent fallback triggered ({e})")
         return {"architecture_audit": ArchitectureAudit(bottlenecks=[], architecture_score=100).model_dump()}
@@ -250,9 +256,10 @@ async def mentor_agent_node(state: CodeItState):
     )
     user_prompt = f"""You are Agent 3: The CodeIt Mentor powered by OpenAI OSS 20B.
 CORE PEDAGOGICAL PHILOSOPHY:
-Giving the user a vague hint is frustrating.
+Giving the user a vague, cryptic riddle is frustrating.
 Giving them copy-paste code ruins the learning.
-The sweet spot is FULL DIAGNOSTIC METADATA + SOCRATIC GUIDANCE.
+The sweet spot is FULL DIAGNOSTIC METADATA + CLEAR, APPROACHABLE SOCRATIC GUIDANCE.
+Write in plain, practical developer English: keep the technical details (exact variables, APIs, standards, and root causes), but avoid heavy academic jargon or overly abstract riddles so the developer clearly understands what to look for and why.
 
 Analyze the following two audit JSON outputs for repository: {repo_url}
 Security Audit JSON:
@@ -267,10 +274,12 @@ For EVERY detected issue, pair full diagnostic metadata with Socratic guidance:
   "overall_score": <int 0-100>,
   "security_score": <int 0-100>,
   "architecture_score": <int 0-100>,
+  "efficiency_score": <int 0-100>,
+  "syntax_score": <int 0-100>,
   "summary": "<concise executive summary of codebase security and architecture posture>",
   "findings": [
     {{
-      "category": "Security" | "Architecture" | "Efficiency",
+      "category": "Security" | "Architecture" | "Efficiency" | "Syntax",
       "diagnostic": {{
         "file_path": "<exact relative path>",
         "line_start": <int or null>,
@@ -282,13 +291,13 @@ For EVERY detected issue, pair full diagnostic metadata with Socratic guidance:
         "standards_ref": "<OWASP Top 10, CWE-ID, or official docs ref>"
       }},
       "guidance": {{
-        "conceptual_direction": "<core software design pattern or security principle needed>",
-        "guiding_question": "<thought-provoking question guiding developer toward the fix>",
+        "conceptual_direction": "<the core concept or fix pattern explained in clear, everyday developer terms>",
+        "guiding_question": "<a clear, specific question referencing the actual variable/function in their code that nudges them toward the fix without being cryptic>",
         "investigation_steps": [
-          "<step 1: what to inspect>",
-          "<step 2: what to trace>"
+          "<step 1: concrete line/variable to inspect and what to check for>",
+          "<step 2: how to trace what happens when it runs and why it breaks>"
         ],
-        "verification_challenge": "<an edge case test scenario to verify their fix>"
+        "verification_challenge": "<a straightforward test or input they can run to prove their fix works>"
       }}
     }}
   ]
@@ -296,7 +305,8 @@ For EVERY detected issue, pair full diagnostic metadata with Socratic guidance:
 STRICT RULES:
 1. NEVER output copy-paste fixed code. The user must write the fix themselves.
 2. Provide exact line numbers and code snippets so the user never has to guess where the problem lies.
-3. Return ONLY a valid JSON object."""
+3. Keep explanations detailed and technically accurate, but use clear, easy-to-follow phrasing rather than dense textbook jargon.
+4. Return ONLY a valid JSON object."""
 
     try:
         report_data = await _invoke_json_20b(system_prompt, user_prompt)
@@ -322,18 +332,20 @@ STRICT RULES:
                     "standards_ref": "OWASP Top 10"
                 },
                 "guidance": {
-                    "conceptual_direction": "Input Sanitization, Encoding, and Access Control",
-                    "guiding_question": f"How can you ensure user-controlled input in {issue.get('file_path')} is sanitized or encoded before being rendered or evaluated?",
+                    "conceptual_direction": "Safe Input Handling & Access Checks (treat user data as plain text, not executable code)",
+                    "guiding_question": f"In {issue.get('file_path')}, user input is being used directly here. What safe API, escaping function, or parameterized method can you use so it is treated strictly as data?",
                     "investigation_steps": [
-                        f"Inspect line {issue.get('line_number', 'N/A')} in {issue.get('file_path')}",
-                        "Check if variables are interpolated directly into DOM or query contexts without sanitization"
+                        f"Open {issue.get('file_path')} around line {issue.get('line_number', 'N/A')} and trace where the input variable comes from.",
+                        "Check if that variable is placed directly into HTML, SQL, a shell command, or a secret literal without escaping or environment config."
                     ],
-                    "verification_challenge": "Pass special HTML/script characters or injection payloads to verify they are treated strictly as inert text."
+                    "verification_challenge": "Test with special characters (like `<script>` or quotes `' \"`) and confirm the app displays or stores them safely as plain text without executing anything."
                 }
             })
         for b in arch_audit.get("bottlenecks", []):
+            b_cat = b.get("category", "Architecture")
+            finding_cat = "Syntax" if b_cat == "Syntax" else ("Architecture" if b_cat == "Architecture" else "Efficiency")
             findings_list.append({
-                "category": "Architecture" if b.get("category") == "Architecture" else "Efficiency",
+                "category": finding_cat,
                 "diagnostic": {
                     "file_path": b.get("file_path", "unknown"),
                     "line_start": b.get("line_number"),
@@ -345,20 +357,24 @@ STRICT RULES:
                     "standards_ref": "Clean Architecture & Resource Lifecycle"
                 },
                 "guidance": {
-                    "conceptual_direction": "Resource Lifecycle & Modular Decoupling",
-                    "guiding_question": f"Where should resource teardown or dependency decoupling happen in {b.get('file_path')} when this operation is completed or re-triggered?",
+                    "conceptual_direction": "Clean Resource Setup & Teardown (making sure work isn't duplicated or left open)",
+                    "guiding_question": f"In {b.get('file_path')}, what happens if this code runs multiple times? Where can you clean up, close, or reset the previous resource/state before starting again?",
                     "investigation_steps": [
-                        f"Trace the lifecycle of the resource or state in {b.get('file_path')} around line {b.get('line_number', 'N/A')}",
-                        "Check if cleanup functions or state resets are executed on every cycle"
+                        f"Look at {b.get('file_path')} around line {b.get('line_number', 'N/A')} to see what is being created, opened, or looped over.",
+                        "Check whether any listeners, connections, or timers are cleaned up when the function finishes or re-runs."
                     ],
-                    "verification_challenge": "Trigger the operation multiple times in succession and inspect memory and CPU usage profile."
+                    "verification_challenge": "Run this action 5–10 times in a row and check that memory usage, network calls, or duplicate handlers don't keep growing."
                 }
             })
 
+        eff_count = sum(1 for f in findings_list if f["category"] == "Efficiency")
+        syn_count = sum(1 for f in findings_list if f["category"] == "Syntax")
         fallback = FinalMentorReport(
             overall_score=int((sec_score + arch_score) / 2),
             security_score=sec_score,
             architecture_score=arch_score,
+            efficiency_score=max(0, 100 - eff_count * 12),
+            syntax_score=max(0, 100 - syn_count * 20),
             summary=f"Audit completed: Security score {sec_score}/100, Architecture score {arch_score}/100. Review the diagnostic findings below.",
             findings=findings_list
         )
@@ -431,21 +447,22 @@ PREVIOUS CHAT HISTORY:
 {json.dumps(chat_history[-4:], indent=2) if chat_history else "None"}
 
 CORE PEDAGOGICAL PHILOSOPHY:
-Full Diagnostic Metadata + Socratic Guidance.
+Full Diagnostic Metadata + Clear, Approachable Socratic Guidance.
+Write in plain, practical developer English: give specific technical details (exact functions, variables, and why it breaks), while keeping your clues easy to understand and act on.
 STRICT RULES:
 1. NEVER output copy-paste fixed code solutions.
-2. Analyze why the student's specific attempt or approach is failing in this codebase context.
-3. Guide the student to discover and write the correct fix themselves.
+2. Explain clearly *why* the student's specific attempt or approach is failing in this codebase context.
+3. Give a helpful, concrete nudge so they can figure out and write the fix themselves without feeling stuck on a vague riddle.
 
 Return a valid JSON object matching this exact schema:
 {{
-  "diagnosis": "<Specific technical diagnosis explaining why their attempt failed, returned None, threw an error, or caused unexpected behavior in this codebase>",
-  "socratic_question": "<Thought-provoking guiding question targeting the exact missing link or principle>",
+  "diagnosis": "<Clear, detailed technical explanation of why their attempt failed, returned None, threw an error, or behaved unexpectedly in this code>",
+  "socratic_question": "<A clear, focused guiding question pointing directly to the missing piece or assumption they should rethink>",
   "investigation_steps": [
-    "<Actionable debugging step 1>",
-    "<Actionable debugging step 2>"
+    "<Actionable debugging step 1: exact file/line or variable to inspect>",
+    "<Actionable debugging step 2: what value or behavior to check for>"
   ],
-  "verification_challenge": "<Quick verification test or check to confirm the fix works once implemented>"
+  "verification_challenge": "<Quick test or check to confirm the fix works once they update the code>"
 }}
 Return ONLY valid JSON."""
 
@@ -456,13 +473,13 @@ Return ONLY valid JSON."""
     except Exception as e:
         print(f"Warning: Fallback stuck guidance ({e})")
         guidance_dict = {
-            "diagnosis": f"When investigating '{student_question[:80]}', the issue typically stems from how state, scope, or initialization lifecycle is ordered before the target line executes.",
-            "socratic_question": "What preconditions or initialization steps must complete before this code path runs, and how can you verify those values at runtime?",
+            "diagnosis": f"Looking at '{student_question[:80]}', this usually happens when a variable is still empty/undefined, or a setup step hasn't finished running before this line executes.",
+            "socratic_question": "If you log or inspect the inputs right before this line runs, what value do you expect them to have—and which earlier function is responsible for setting them?",
             "investigation_steps": [
-                "Inspect the initialization order and state values right before the offending line executes.",
-                "Trace the data flow from the entry point to confirm expected inputs are populated in scope."
+                "Check the exact line where the error or unexpected value appears and print/inspect the variables feeding into it.",
+                "Trace backward to the function or event that sets those variables to make sure it actually runs first."
             ],
-            "verification_challenge": "Add a targeted assertion or log check right before the operation and trigger the edge case to confirm the state matches expectations."
+            "verification_challenge": "Add a quick print/log or assertion right before the line and re-run the same case to confirm the values match what you expected."
         }
 
     chat_history.append({

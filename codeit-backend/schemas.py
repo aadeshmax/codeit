@@ -19,7 +19,7 @@ class ArchBottleneck(BaseModel):
     file_path: str
     line_number: Optional[int] = Field(None, description="Starting line number of the bottleneck")
     code_snippet: Optional[str] = Field(None, description="Offending code snippet")
-    category: Literal["Architecture", "Complexity", "Modularity", "Async/IO"]
+    category: Literal["Architecture", "Complexity", "Modularity", "Async/IO", "Syntax"]
     flaw: str = Field(description="Structural or efficiency issue identified")
     impact: Optional[str] = Field(None, description="Impact on latency, scalability, or maintainability")
 
@@ -45,7 +45,7 @@ class SocraticGuidance(BaseModel):
     verification_challenge: str = Field(description="Edge case test scenario to prove the fix works")
 
 class FullDiagnosticFinding(BaseModel):
-    category: Literal["Security", "Architecture", "Efficiency"]
+    category: Literal["Security", "Architecture", "Efficiency", "Syntax"]
     diagnostic: DiagnosticMetadata
     guidance: SocraticGuidance
 
@@ -53,6 +53,8 @@ class FinalMentorReport(BaseModel):
     overall_score: int
     security_score: int
     architecture_score: int
+    efficiency_score: Optional[int] = None
+    syntax_score: Optional[int] = None
     summary: str
     findings: List[FullDiagnosticFinding] = Field(
         default_factory=list,
