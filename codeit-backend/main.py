@@ -6,6 +6,7 @@ import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional, Dict, Any
 
 import httpx
@@ -20,7 +21,8 @@ if sys.platform == "win32":
 
 from fastapi import FastAPI, HTTPException, Request, Header, WebSocket, WebSocketDisconnect, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -234,8 +236,14 @@ def format_stuck_guidance_as_text(guidance: dict, question: str) -> str:
     return "\n".join(lines)
 
 
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
+
 @app.get("/")
 def read_root():
+    index_file = FRONTEND_DIST / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
     return {"status": "online", "service": "CodeIt Socratic AI Bot"}
 
 
@@ -875,6 +883,22 @@ async def test_pipeline(repo_url: str = "https://github.com/pallets/flask"):
     print(json.dumps(result.get("architecture_audit"), indent=2))
     print("\n[FINAL SOCRATIC MENTOR REPORT]:")
     print(json.dumps(result.get("final_report"), indent=2))
+
+
+# Mount built React frontend (single-service deployment)
+if FRONTEND_DIST.exists():
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith(("api/", "ws/")):
+            raise HTTPException(status_code=404, detail="Endpoint not found")
+        target = (FRONTEND_DIST / full_path).resolve()
+        if target.is_relative_to(FRONTEND_DIST.resolve()) and target.exists() and target.is_file():
+            return FileResponse(target)
+        return FileResponse(FRONTEND_DIST / "index.html")
 
 
 if __name__ == "__main__":
