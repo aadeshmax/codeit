@@ -221,14 +221,19 @@ async def architecture_agent_node(state: CodeItState):
     structured_llm = groq_llm_120b.with_structured_output(ArchitectureAudit)
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are Agent 2: Software Architect, Efficiency & Syntax Auditor powered by OpenAI OSS 120B.
-Identify syntax/parse errors (missing brackets, invalid indentation, unterminated strings, invalid syntax), poor modularity, O(N^2) loops, blocking I/O in async routes, resource leaks, and design flaws.
-Inspect the line numbers prefixed in the code context. For every bottleneck or syntax error found, provide:
+Identify:
+1. Syntax & parse errors (ALWAYS categorize strictly as "Syntax" — do not create any new categories):
+   - Missing colons (:), missing semicolons (;) where required by the language, missing or mismatched brackets/parentheses/braces ((), [], {}), invalid indentation, and unterminated strings.
+   - Code typos (e.g. misspelled keywords, broken variable/function names, invalid tokens) or any stray/unwanted text left in executable code that will cause a syntax, parse, or runtime error. ONLY ignore stray text or notes if they are properly commented out using the language's valid comment syntax (e.g. #, //, /* */, <!-- -->).
+2. Architecture & efficiency bottlenecks ("Architecture", "Complexity", "Modularity", or "Async/IO"):
+   - Poor modularity, O(N^2) loops, blocking I/O in async routes, resource leaks, and design flaws.
+Inspect the line numbers prefixed in the code context. For every syntax error or bottleneck found, provide:
 - file_path: exact file path
 - line_number: exact line number where the issue occurs
 - code_snippet: the exact problematic code snippet
 - category: "Syntax", "Architecture", "Complexity", "Modularity", or "Async/IO"
-- flaw: specific technical description of the syntax error or bottleneck
-- impact: runtime failure, crash, or degradation in throughput, latency, or maintainability
+- flaw: specific technical description of the syntax error, typo/stray text, or bottleneck
+- impact: syntax/parse failure, runtime crash, or degradation in throughput, latency, or maintainability
 Return empty bottlenecks and a score of 100 if the code is clean."""),
         ("human", "{code_context}")
     ])
@@ -306,7 +311,8 @@ STRICT RULES:
 1. NEVER output copy-paste fixed code. The user must write the fix themselves.
 2. Provide exact line numbers and code snippets so the user never has to guess where the problem lies.
 3. Keep explanations detailed and technically accurate, but use clear, easy-to-follow phrasing rather than dense textbook jargon.
-4. Return ONLY a valid JSON object."""
+4. Strictly use ONLY the four categories: "Security", "Architecture", "Efficiency", or "Syntax". Group all missing colons/semicolons/brackets, syntax/parse errors, code typos, and uncommented stray text under "Syntax" (never create extra categories).
+5. Return ONLY a valid JSON object."""
 
     try:
         report_data = await _invoke_json_20b(system_prompt, user_prompt)
